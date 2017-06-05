@@ -4,19 +4,26 @@ module Highlight.Options where
 
 import Control.Applicative (many)
 import Data.Monoid ((<>))
-import Data.Text (Text)
 import Options.Applicative
-       (Parser, flag, help, long, metavar, short, strArgument)
+       (Parser, argument, flag, help, long, maybeReader, metavar, short,
+        strArgument)
+import Text.RE.PCRE.ByteString
+       (RE, SimpleREOptions(MultilineInsensitive), compileRegexWith)
 
 data IgnoreCase = IgnoreCase | DoNotIgnoreCase
+  deriving (Eq, Read, Show)
 
 data Recursive = Recursive | NotRecursive
+  deriving (Eq, Read, Show)
 
 data ColorGrepFilenames = ColorGrepFilenames | DoNotColorGrepFileNames
+  deriving (Eq, Read, Show)
 
-data RegEx = RegEx Text
+data RegEx = RegEx RE
+  deriving (Eq, Read, Show)
 
 data InputFilename = InputFilename FilePath
+  deriving (Eq, Read, Show)
 
 data Options = Options
   { optionsIgnoreCase :: IgnoreCase
@@ -24,7 +31,7 @@ data Options = Options
   , optionsColorGrepFilenames :: ColorGrepFilenames
   , optionsRegEx :: RegEx
   , optionsInputFilenames :: [InputFilename]
-  }
+  } deriving (Eq, Read, Show)
 
 
 -- sample :: Parser Sample
@@ -61,7 +68,12 @@ colorGrepFilenamesParser =
   in flag DoNotColorGrepFileNames ColorGrepFilenames mods
 
 regExParser :: Parser RegEx
-regExParser = pure $ RegEx "what"
+regExParser =
+  let mods = metavar "PATTERN"
+  in argument (maybeReader f) mods
+  where
+    f :: String -> Maybe RegEx
+    f s = RegEx <$> compileRegexWith MultilineInsensitive s
 
 inputFilenamesParser :: Parser [InputFilename]
 inputFilenamesParser =
