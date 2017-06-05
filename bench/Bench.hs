@@ -8,7 +8,7 @@ main =
   defaultMain
     [ bgroup
         "example1"
-        [ bench "plus" $ nf (1 +) 1
-        , bench "minus" $ nf (1 -) 1
+        [ bench "plus" $ nf (1 +) (1 :: Int)
+        , bench "minus" $ nf (1 -) (1 :: Int)
         ]
     ]
