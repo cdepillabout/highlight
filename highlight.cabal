@@ -17,10 +17,13 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     Highlight
+                     , Highlight.Options
+                     , Highlight.Run
   build-depends:       base >= 4.8 && < 5
                      , ansi-terminal >= 0.6
                      , containers >= 0.5
                      , mtl >= 2.2
+                     , optparse-applicative >= 0.11
                      , parsec >= 3.1
                      , text >= 1.2
                      , transformers >= 0.4
