@@ -1,3 +1,4 @@
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Highlight.Options where
@@ -5,10 +6,11 @@ module Highlight.Options where
 import Control.Applicative (many)
 import Data.Monoid ((<>))
 import Options.Applicative
-       (Parser, argument, flag, help, long, maybeReader, metavar, short,
+       (Parser, argument, eitherReader, flag, help, long, metavar, short,
         strArgument)
 import Text.RE.PCRE.ByteString
-       (RE, SimpleREOptions(MultilineInsensitive), compileRegexWith)
+       (RE, SimpleREOptions(MultilineInsensitive), compileRegexWith,
+        reSource)
 
 data IgnoreCase = IgnoreCase | DoNotIgnoreCase
   deriving (Eq, Read, Show)
@@ -19,11 +21,17 @@ data Recursive = Recursive | NotRecursive
 data ColorGrepFilenames = ColorGrepFilenames | DoNotColorGrepFileNames
   deriving (Eq, Read, Show)
 
-data RegEx = RegEx RE
-  deriving (Eq, Read, Show)
+newtype RegEx = RegEx
+  { unRegEx :: RE
+  }
 
-data InputFilename = InputFilename FilePath
-  deriving (Eq, Read, Show)
+instance Show RegEx where
+  show :: RegEx -> String
+  show = reSource . unRegEx
+
+newtype InputFilename = InputFilename
+  { unInputFilename :: FilePath
+  } deriving (Eq, Read, Show)
 
 data Options = Options
   { optionsIgnoreCase :: IgnoreCase
@@ -31,7 +39,7 @@ data Options = Options
   , optionsColorGrepFilenames :: ColorGrepFilenames
   , optionsRegEx :: RegEx
   , optionsInputFilenames :: [InputFilename]
-  } deriving (Eq, Read, Show)
+  } deriving (Show)
 
 
 -- sample :: Parser Sample
@@ -70,10 +78,13 @@ colorGrepFilenamesParser =
 regExParser :: Parser RegEx
 regExParser =
   let mods = metavar "PATTERN"
-  in argument (maybeReader f) mods
+  in argument (eitherReader f) mods
   where
-    f :: String -> Maybe RegEx
-    f s = RegEx <$> compileRegexWith MultilineInsensitive s
+    f :: String -> Either String RegEx
+    f s =
+      case compileRegexWith MultilineInsensitive s of
+        Nothing -> Left $ "regex not valid: \"" <> s <> "\""
+        Just re -> Right $ RegEx re
 
 inputFilenamesParser :: Parser [InputFilename]
 inputFilenamesParser =
