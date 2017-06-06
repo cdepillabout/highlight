@@ -9,7 +9,7 @@ import Control.Monad.Except (ExceptT, runExceptT, throwError)
 import Highlight.Error (HighlightErr)
 import Highlight.Options
        (ColorGrepFilenames, IgnoreCase, InputFilename, Options(..),
-        Recursive, RegEx)
+        RawRegex, Recursive)
 
 newtype HighlightT m a = HighlightT
   { unHighlightM :: ReaderT Options (ExceptT HighlightErr m) a
@@ -32,8 +32,8 @@ getRecursive = optionsRecursive <$> getOptions
 getColorGrepFilenames :: Monad m => HighlightT m ColorGrepFilenames
 getColorGrepFilenames = optionsColorGrepFilenames <$> getOptions
 
-getRegEx :: Monad m => HighlightT m RegEx
-getRegEx = optionsRegEx <$> getOptions
+getRawRegex :: Monad m => HighlightT m RawRegex
+getRawRegex = optionsRawRegex <$> getOptions
 
 getInputFilenames :: Monad m => HighlightT m [InputFilename]
 getInputFilenames = optionsInputFilenames <$> getOptions

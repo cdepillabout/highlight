@@ -20,8 +20,8 @@ data Recursive = Recursive | NotRecursive
 data ColorGrepFilenames = ColorGrepFilenames | DoNotColorGrepFileNames
   deriving (Eq, Read, Show)
 
-newtype RegEx = RegEx
-  { unRegEx :: String
+newtype RawRegex = RawRegex
+  { unRawRegex :: String
   } deriving (Eq, Read, Show)
 
 newtype InputFilename = InputFilename
@@ -32,7 +32,7 @@ data Options = Options
   { optionsIgnoreCase :: IgnoreCase
   , optionsRecursive :: Recursive
   , optionsColorGrepFilenames :: ColorGrepFilenames
-  , optionsRegEx :: RegEx
+  , optionsRawRegex :: RawRegex
   , optionsInputFilenames :: [InputFilename]
   } deriving (Eq, Read, Show)
 
@@ -70,10 +70,10 @@ colorGrepFilenamesParser =
         help "highlight output from grep"
   in flag DoNotColorGrepFileNames ColorGrepFilenames mods
 
-regExParser :: Parser RegEx
-regExParser =
+rawRegexParser :: Parser RawRegex
+rawRegexParser =
   let mods = metavar "PATTERN"
-  in RegEx <$> strArgument mods
+  in RawRegex <$> strArgument mods
 
 inputFilenamesParser :: Parser [InputFilename]
 inputFilenamesParser =
@@ -86,5 +86,5 @@ optionsParser =
     <$> ignoreCaseParser
     <*> recursiveParser
     <*> colorGrepFilenamesParser
-    <*> regExParser
+    <*> rawRegexParser
     <*> inputFilenamesParser
