@@ -6,11 +6,10 @@ module Highlight.Options where
 import Control.Applicative (many)
 import Data.Monoid ((<>))
 import Options.Applicative
-       (Parser, argument, eitherReader, flag, help, long, metavar, short,
-        strArgument)
-import Text.RE.PCRE.ByteString
-       (RE, SimpleREOptions(MultilineInsensitive), compileRegexWith,
-        reSource)
+       (Parser, flag, help, long, metavar, short, strArgument)
+-- import Text.RE.PCRE.ByteString
+--        (RE, SimpleREOptions(MultilineInsensitive), compileRegexWith,
+--         reSource)
 
 data IgnoreCase = IgnoreCase | DoNotIgnoreCase
   deriving (Eq, Read, Show)
@@ -22,12 +21,8 @@ data ColorGrepFilenames = ColorGrepFilenames | DoNotColorGrepFileNames
   deriving (Eq, Read, Show)
 
 newtype RegEx = RegEx
-  { unRegEx :: RE
-  }
-
-instance Show RegEx where
-  show :: RegEx -> String
-  show = reSource . unRegEx
+  { unRegEx :: String
+  } deriving (Eq, Read, Show)
 
 newtype InputFilename = InputFilename
   { unInputFilename :: FilePath
@@ -39,7 +34,7 @@ data Options = Options
   , optionsColorGrepFilenames :: ColorGrepFilenames
   , optionsRegEx :: RegEx
   , optionsInputFilenames :: [InputFilename]
-  } deriving (Show)
+  } deriving (Eq, Read, Show)
 
 
 -- sample :: Parser Sample
@@ -78,13 +73,7 @@ colorGrepFilenamesParser =
 regExParser :: Parser RegEx
 regExParser =
   let mods = metavar "PATTERN"
-  in argument (eitherReader f) mods
-  where
-    f :: String -> Either String RegEx
-    f s =
-      case compileRegexWith MultilineInsensitive s of
-        Nothing -> Left $ "regex not valid: \"" <> s <> "\""
-        Just re -> Right $ RegEx re
+  in RegEx <$> strArgument mods
 
 inputFilenamesParser :: Parser [InputFilename]
 inputFilenamesParser =
