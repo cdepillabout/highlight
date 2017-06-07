@@ -152,36 +152,43 @@ data OriginalInputSource
   | OriginalInputSourceMultiFile
       (Producer WhereDidFileComeFrom HighlightMWithIO ())
 
-createOriginalInputSource :: HighlightM OriginalInputSource
+-- | TODO: This can't use OriginalInputSource, so we actually need to return
+-- 'InputData'.
+createOriginalInputSource :: HighlightM InputData
 createOriginalInputSource = do
   inputFilenames <- getInputFilenames
   recursive <- getRecursive
   case (inputFilenames, recursive) of
-    ([], _) -> pure OriginalInputSourceStdin
-    ([InputFilename singleFile], NotRecursive) ->
-      pure $ OriginalInputSourceSingleFileNotRecursive singleFile
+    ([], _) ->
+      pure . InputDataStdin $ stdin ^. Pipes.ByteString.lines
+    ([InputFilename singleFile], NotRecursive) -> do
+      eitherProducer <- unHighlightMWithIO $ producerForSingleFile singleFile
+      pure $ InputDataSingleFile singleFile eitherProducer
     ([InputFilename singleFile], Recursive) -> do
-      producer <-
-        unHighlightMWithIO $ createMultiFile [FileSpecifiedByUser singleFile]
-      pure $ OriginalInputSourceMultiFile producer
+      undefined
+      -- producer <-
+      --   unHighlightMWithIO $ createMultiFile [FileSpecifiedByUser singleFile]
+      -- pure $ OriginalInputSourceMultiFile producer
     (multiFiles, NotRecursive) ->
-      pure .  OriginalInputSourceMultiFile .  each $
-        fmap (FileSpecifiedByUser . unInputFilename) multiFiles
+      undefined
+      -- pure .  OriginalInputSourceMultiFile .  each $
+      --   fmap (FileSpecifiedByUser . unInputFilename) multiFiles
     (multiFiles, Recursive) -> do
-      producer <-
-        unHighlightMWithIO $
-          createMultiFile $
-            fmap (FileSpecifiedByUser . unInputFilename) multiFiles
-      pure $ OriginalInputSourceMultiFile producer
+      undefined
+      -- producer <-
+      --   unHighlightMWithIO $
+      --     createMultiFile $
+      --       fmap (FileSpecifiedByUser . unInputFilename) multiFiles
+      -- pure $ OriginalInputSourceMultiFile producer
 
-createMultiFile
-  :: [WhereDidFileComeFrom]
-  -> HighlightMWithIO (Producer WhereDidFileComeFrom HighlightMWithIO ())
-createMultiFile whereDids = do
-  let listT =
-        asum $ fmap (childOf . decodeString . getFilePathFromWhereDid) whereDids
-      producer = enumerate listT :: Producer Path.FilePath HighlightMWithIO ()
-  undefined
+-- createMultiFile
+--   :: [WhereDidFileComeFrom]
+--   -> HighlightMWithIO (Producer WhereDidFileComeFrom HighlightMWithIO ())
+-- createMultiFile whereDids = do
+--   let listT =
+--         asum $ fmap (childOf . decodeString . getFilePathFromWhereDid) whereDids
+--       producer = enumerate listT :: Producer Path.FilePath HighlightMWithIO ()
+--   undefined
 
 
 data InputData
