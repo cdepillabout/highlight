@@ -8,6 +8,5 @@ data FileErr
   | FileDoesNotExistErr FilePath
   | FilePermissionErr FilePath
 
-data HighlightErr =
-  HighlightRegexCompileErr RawRegex
-  HighlightFileErr FileErr
+data HighlightErr
+  = HighlightRegexCompileErr RawRegex
