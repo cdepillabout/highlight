@@ -1,13 +1,24 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE MultiWayIf #-}
 
 module Highlight.Monad where
 
+import Control.Lens ((^.))
+import Control.Exception (IOException, try)
+import Control.Monad.Except (ExceptT, runExceptT, throwError)
 import Control.Monad.IO.Class (MonadIO(liftIO))
 import Control.Monad.Reader (ReaderT, ask, runReaderT)
-import Control.Monad.Except (ExceptT, runExceptT, throwError)
+import Control.Monad.Trans.Free (FreeT)
+import Data.ByteString (ByteString)
+import Pipes (Producer, yield)
+import Pipes.ByteString (fromHandle)
+import qualified Pipes.ByteString
+import System.IO (Handle, IOMode(ReadMode), openBinaryFile)
+import System.IO.Error
+       (isAlreadyInUseError, isDoesNotExistError, isPermissionError)
 
-import Highlight.Error (HighlightErr(..))
+import Highlight.Error (FileErr(..), HighlightErr(..))
 import Highlight.Options
        (ColorGrepFilenames, IgnoreCase, InputFilename, Options(..),
         RawRegex, Recursive)
@@ -24,6 +35,7 @@ newtype HighlightM a = HighlightM
 runHighlightM :: Options -> HighlightM a -> IO (Either HighlightErr a)
 runHighlightM opts = runExceptT . flip runReaderT opts . unHighlightM
 
+-- | Only used internally.
 newtype HighlightMWithIO a = HighlightMWithIO
   { unHighlightMWithIO :: HighlightM a
   } deriving (Functor, Applicative, Monad)
@@ -99,26 +111,48 @@ data InputSource
 --     (multiFiles, NotRecursive) -> undefined
 --     (multiFiles, Recursive) -> undefined
 
--- data MultiFileType
---   = MultiFileNotRecursive
---   | MultiFileRecursive
---   | SingleFileNotRecursive
---   | SingleFileRecursive
+data MultiFileType
+  = MultiFileNotRecursive
+  | MultiFileRecursive
+  | SingleFileNotRecursive
+  | SingleFileRecursive
 
--- producerForFile
---   :: MultiFileType
---   -> FilePath
---   -> HighlightM (Producer (InputSource, FreeT (Producer ByteString m) m x) m x)
--- producerForFile multiFileType filePath = do
---   case (multiFileType, recursive) of
---     (PossiblyMultiFiles, NotRecursive) -> do
---       eitherHandle <- try $ openBinaryFile filePath ReadMode
---       case eitherHandler of
---         Left ioerr ->
---           if | isAlreadyInUseError ioerr -> throwFileAlreadyInUseErr filePath
---              | isDoesNotExistError ioerr -> throwFileDoesNotExistErr filePath
---              | isPermissionError ioerr -> throwFilePermissionErr filePath
---              | otherwise -> throwIOerr ioerr
---         Right handle -> do
---           let linesFreeTProducer = fromHandle handle ^. lines
---           yield (InputSourceSingleFile filePath, linesFreeTProducer)
+type Lala =
+  Producer
+    ( Either
+        FileErr
+        ( InputSource
+        , FreeT
+            (Producer ByteString HighlightMWithIO)
+            HighlightMWithIO
+            ()
+        )
+    )
+    HighlightMWithIO
+    ()
+
+producerForFile
+  :: MultiFileType
+  -> FilePath
+  -> HighlightM Lala
+producerForFile SingleFileNotRecursive filePath = do
+  eitherHandle <- openFilePathForReading filePath
+  case eitherHandle of
+    Left ioerr ->
+      if | isAlreadyInUseError ioerr ->
+          pure . yield . Left $ FileAlreadyInUseErr filePath
+         | isDoesNotExistError ioerr ->
+          pure . yield . Left $ FileDoesNotExistErr filePath
+         | isPermissionError ioerr ->
+          pure . yield . Left $ FilePermissionErr filePath
+         | otherwise -> throwIOError ioerr
+    Right handle -> do
+      let linesFreeTProducer = fromHandle handle ^. Pipes.ByteString.lines
+      pure . yield $ Right (InputSourceSingleFile filePath, linesFreeTProducer)
+
+openFilePathForReading :: FilePath -> HighlightM (Either IOException Handle)
+openFilePathForReading filePath =
+  HighlightM . liftIO . try $ openBinaryFile filePath ReadMode
+
+throwIOError :: IOException -> HighlightM a
+throwIOError = HighlightM . liftIO . ioError

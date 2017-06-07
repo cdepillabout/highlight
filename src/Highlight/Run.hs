@@ -2,7 +2,6 @@
 
 module Highlight.Run where
 
-import Control.Monad.Trans.Free (FreeT)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as ByteString
 import Data.ByteString.Unsafe (unsafePackCStringLen)
