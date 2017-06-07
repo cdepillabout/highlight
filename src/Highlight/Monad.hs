@@ -134,25 +134,23 @@ type Lala =
 producerForFile
   :: MultiFileType
   -> FilePath
-  -> HighlightM Lala
+  -> Lala
 producerForFile SingleFileNotRecursive filePath = do
   eitherHandle <- openFilePathForReading filePath
   case eitherHandle of
     Left ioerr ->
-      if | isAlreadyInUseError ioerr ->
-          pure . yield . Left $ FileAlreadyInUseErr filePath
-         | isDoesNotExistError ioerr ->
-          pure . yield . Left $ FileDoesNotExistErr filePath
-         | isPermissionError ioerr ->
-          pure . yield . Left $ FilePermissionErr filePath
+      if | isAlreadyInUseError ioerr -> yield . Left $ FileAlreadyInUseErr filePath
+         | isDoesNotExistError ioerr -> yield . Left $ FileDoesNotExistErr filePath
+         | isPermissionError ioerr -> yield . Left $ FilePermissionErr filePath
          | otherwise -> throwIOError ioerr
     Right handle -> do
       let linesFreeTProducer = fromHandle handle ^. Pipes.ByteString.lines
-      pure . yield $ Right (InputSourceSingleFile filePath, linesFreeTProducer)
+      yield $ Right (InputSourceSingleFile filePath, linesFreeTProducer)
 
-openFilePathForReading :: FilePath -> HighlightM (Either IOException Handle)
+
+openFilePathForReading :: MonadIO m => FilePath -> m (Either IOException Handle)
 openFilePathForReading filePath =
-  HighlightM . liftIO . try $ openBinaryFile filePath ReadMode
+  liftIO . try $ openBinaryFile filePath ReadMode
 
-throwIOError :: IOException -> HighlightM a
-throwIOError = HighlightM . liftIO . ioError
+throwIOError :: MonadIO m => IOException -> m a
+throwIOError = liftIO . ioError
