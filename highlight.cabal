@@ -33,6 +33,7 @@ library
                      , optparse-applicative >= 0.11
                      , pipes >= 4
                      , pipes-bytestring >= 2
+                     , pipes-safe >= 2
                      , regex >= 1.0
                      , regex-with-pcre >= 1.0
                      , system-filepath >= 0.4

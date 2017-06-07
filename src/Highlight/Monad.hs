@@ -18,6 +18,8 @@ import qualified Filesystem.Path.CurrentOS as Path
 import Pipes (Producer, each, enumerate, yield)
 import Pipes.ByteString (fromHandle, stdin)
 import qualified Pipes.ByteString
+import Pipes.Prelude (toListM)
+import Pipes.Safe (SafeT, runSafeT)
 import System.IO (Handle, IOMode(ReadMode), openBinaryFile)
 import System.IO.Error
        (isAlreadyInUseError, isDoesNotExistError, isPermissionError)
@@ -124,10 +126,10 @@ data MultiFileType
 
 type Lala =
   Producer
-    ( Either
-        (IOException, FilePath)
-        ( FilePath
-        , FreeT
+    ( WhereDidFileComeFrom
+    , Either
+        IOException
+        ( FreeT
             (Producer ByteString HighlightMWithIO)
             HighlightMWithIO
             ()
@@ -144,18 +146,10 @@ getFilePathFromWhereDid :: WhereDidFileComeFrom -> FilePath
 getFilePathFromWhereDid (FileSpecifiedByUser fp) = fp
 getFilePathFromWhereDid (FileFoundRecursively fp) = fp
 
--- | TODO: I need to combine this with 'InputData'.  There is no way to create
--- this type because I can't create OriginalInputSourceMultiFile'.
-data OriginalInputSource
-  = OriginalInputSourceStdin
-  | OriginalInputSourceSingleFileNotRecursive FilePath
-  | OriginalInputSourceMultiFile
-      (Producer WhereDidFileComeFrom HighlightMWithIO ())
-
 -- | TODO: This can't use OriginalInputSource, so we actually need to return
 -- 'InputData'.
-createOriginalInputSource :: HighlightM InputData
-createOriginalInputSource = do
+createInputData :: HighlightM InputData
+createInputData = do
   inputFilenames <- getInputFilenames
   recursive <- getRecursive
   case (inputFilenames, recursive) of
@@ -165,10 +159,11 @@ createOriginalInputSource = do
       eitherProducer <- unHighlightMWithIO $ producerForSingleFile singleFile
       pure $ InputDataSingleFile singleFile eitherProducer
     ([InputFilename singleFile], Recursive) -> do
-      undefined
-      -- producer <-
-      --   unHighlightMWithIO $ createMultiFile [FileSpecifiedByUser singleFile]
-      -- pure $ OriginalInputSourceMultiFile producer
+      lala <-
+        unHighlightMWithIO $
+          producerForSingleFilePossiblyRecursive $
+            FileSpecifiedByUser singleFile
+      pure $ InputDataMultiFile lala
     (multiFiles, NotRecursive) ->
       undefined
       -- pure .  OriginalInputSourceMultiFile .  each $
@@ -180,6 +175,27 @@ createOriginalInputSource = do
       --     createMultiFile $
       --       fmap (FileSpecifiedByUser . unInputFilename) multiFiles
       -- pure $ OriginalInputSourceMultiFile producer
+
+producerForSingleFilePossiblyRecursive
+  :: WhereDidFileComeFrom
+  -> HighlightMWithIO Lala
+producerForSingleFilePossiblyRecursive whereDid = do
+  let filePath = getFilePathFromWhereDid whereDid
+  eitherHandle <- openFilePathForReading filePath
+  case eitherHandle of
+    Right handle -> do
+      let linesFreeTProducer = fromHandle handle ^. Pipes.ByteString.lines
+      pure $ yield (whereDid,  Right linesFreeTProducer)
+    Left ioerr -> do
+      -- let listT =
+      --       asum $ fmap (childOf . decodeString . getFilePathFromWhereDid) whereDids
+      --     producer = enumerate listT :: Producer Path.FilePath (SafeT IO) ()
+      let listT = childOf $ decodeString filePath
+          producer = enumerate listT :: Producer Path.FilePath (SafeT IO) ()
+          lIO = runSafeT $ toListM producer :: IO [Path.FilePath]
+      l <- liftIO lIO
+      liftIO $ print l
+      undefined
 
 -- createMultiFile
 --   :: [WhereDidFileComeFrom]
@@ -201,14 +217,6 @@ data InputData
           (FreeT (Producer ByteString HighlightMWithIO) HighlightMWithIO ())
       )
   | InputDataMultiFile Lala
-
-getInputDataFromOriginalInputSource :: OriginalInputSource -> HighlightM InputData
-getInputDataFromOriginalInputSource OriginalInputSourceStdin =
-  pure . InputDataStdin $ stdin ^. Pipes.ByteString.lines
-getInputDataFromOriginalInputSource
-    (OriginalInputSourceSingleFileNotRecursive filePath) = do
-  producer <- unHighlightMWithIO $ producerForSingleFile filePath
-  pure $ InputDataSingleFile filePath producer
 
 producerForSingleFile
   :: FilePath
