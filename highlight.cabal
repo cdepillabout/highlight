@@ -26,6 +26,7 @@ library
                      , ansi-terminal >= 0.6
                      , bytestring >= 0.10
                      , containers >= 0.5
+                     , dirstream >= 1
                      , free >= 4
                      , lens >= 4
                      , mtl >= 2.2

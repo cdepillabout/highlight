@@ -11,7 +11,8 @@ import Control.Monad.IO.Class (MonadIO(liftIO))
 import Control.Monad.Reader (ReaderT, ask, runReaderT)
 import Control.Monad.Trans.Free (FreeT)
 import Data.ByteString (ByteString)
-import Pipes (Producer, yield)
+import Data.DirStream (childOf)
+import Pipes (Producer, each, enumerate, yield)
 import Pipes.ByteString (fromHandle)
 import qualified Pipes.ByteString
 import System.IO (Handle, IOMode(ReadMode), openBinaryFile)
@@ -20,8 +21,9 @@ import System.IO.Error
 
 import Highlight.Error (FileErr(..), HighlightErr(..))
 import Highlight.Options
-       (ColorGrepFilenames, IgnoreCase, InputFilename, Options(..),
-        RawRegex, Recursive)
+       (ColorGrepFilenames, IgnoreCase,
+        InputFilename(InputFilename, unInputFilename), Options(..),
+        RawRegex, Recursive(NotRecursive, Recursive))
 
 
 -------------------------
@@ -120,7 +122,7 @@ data MultiFileType
 type Lala =
   Producer
     ( Either
-        FileErr
+        (IOException, FilePath)
         ( InputSource
         , FreeT
             (Producer ByteString HighlightMWithIO)
@@ -131,6 +133,34 @@ type Lala =
     HighlightMWithIO
     ()
 
+data WhereDidFileComeFrom
+  = FileSpecifiedByUser FilePath
+  | FileFoundRecursively FilePath
+
+data OriginalInputSource
+  = OriginalInputSourceStdin
+  | OriginalInputSourceUserSpecifiedSingleFileNotRecursive WhereDidFileComeFrom
+  | OriginalInputSourceUserSpecifiedMultiFile
+      (Producer WhereDidFileComeFrom HighlightMWithIO ())
+
+createOriginalInputSource :: HighlightM OriginalInputSource
+createOriginalInputSource = do
+  inputFilenames <- getInputFilenames
+  recursive <- getRecursive
+  case (inputFilenames, recursive) of
+    ([], _) -> pure OriginalInputSourceStdin
+    ([InputFilename singleFile], NotRecursive) ->
+      pure $ OriginalInputSourceUserSpecifiedSingleFileNotRecursive $
+        FileSpecifiedByUser singleFile
+    ([InputFilename singleFile], Recursive) ->
+      undefined
+      -- createMultiFile [FileSpecifiedByUser singleFile]
+    (multiFiles, NotRecursive) ->
+      pure .  OriginalInputSourceUserSpecifiedMultiFile .  each $
+        fmap (FileSpecifiedByUser . unInputFilename) multiFiles
+    (multiFiles, Recursive) -> undefined
+      -- createMultiFile (fmap FileSpecifiedByUser multiFiles) Recursive
+
 producerForFile
   :: MultiFileType
   -> FilePath
@@ -138,19 +168,24 @@ producerForFile
 producerForFile SingleFileNotRecursive filePath = do
   eitherHandle <- openFilePathForReading filePath
   case eitherHandle of
-    Left ioerr ->
-      if | isAlreadyInUseError ioerr -> yield . Left $ FileAlreadyInUseErr filePath
-         | isDoesNotExistError ioerr -> yield . Left $ FileDoesNotExistErr filePath
-         | isPermissionError ioerr -> yield . Left $ FilePermissionErr filePath
-         | otherwise -> throwIOError ioerr
     Right handle -> do
       let linesFreeTProducer = fromHandle handle ^. Pipes.ByteString.lines
       yield $ Right (InputSourceSingleFile filePath, linesFreeTProducer)
+    Left ioerr -> yield $ Left (ioerr, filePath)
+producerForFile SingleFileRecursive filePath = do
+  eitherHandle <- openFilePathForReading filePath
+  case eitherHandle of
+    Right handle -> do
+      let linesFreeTProducer = fromHandle handle ^. Pipes.ByteString.lines
+      yield $ Right (InputSourceSingleFile filePath, linesFreeTProducer)
+    Left ioerr -> do
+      -- filePathProducer <- enumerate $ childOf filePath
+      undefined
 
 
 openFilePathForReading :: MonadIO m => FilePath -> m (Either IOException Handle)
 openFilePathForReading filePath =
   liftIO . try $ openBinaryFile filePath ReadMode
 
-throwIOError :: MonadIO m => IOException -> m a
-throwIOError = liftIO . ioError
+-- throwIOError :: MonadIO m => IOException -> m a
+-- throwIOError = liftIO . ioError
