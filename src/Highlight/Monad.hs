@@ -12,8 +12,11 @@ import Control.Monad.Reader (ReaderT, ask, runReaderT)
 import Control.Monad.Trans.Free (FreeT)
 import Data.ByteString (ByteString)
 import Data.DirStream (childOf)
+import Data.Foldable (asum)
+import Filesystem.Path.CurrentOS (decodeString)
+import qualified Filesystem.Path.CurrentOS as Path
 import Pipes (Producer, each, enumerate, yield)
-import Pipes.ByteString (fromHandle)
+import Pipes.ByteString (fromHandle, stdin)
 import qualified Pipes.ByteString
 import System.IO (Handle, IOMode(ReadMode), openBinaryFile)
 import System.IO.Error
@@ -123,7 +126,7 @@ type Lala =
   Producer
     ( Either
         (IOException, FilePath)
-        ( InputSource
+        ( FilePath
         , FreeT
             (Producer ByteString HighlightMWithIO)
             HighlightMWithIO
@@ -137,10 +140,16 @@ data WhereDidFileComeFrom
   = FileSpecifiedByUser FilePath
   | FileFoundRecursively FilePath
 
+getFilePathFromWhereDid :: WhereDidFileComeFrom -> FilePath
+getFilePathFromWhereDid (FileSpecifiedByUser fp) = fp
+getFilePathFromWhereDid (FileFoundRecursively fp) = fp
+
+-- | TODO: I need to combine this with 'InputData'.  There is no way to create
+-- this type because I can't create OriginalInputSourceMultiFile'.
 data OriginalInputSource
   = OriginalInputSourceStdin
-  | OriginalInputSourceUserSpecifiedSingleFileNotRecursive WhereDidFileComeFrom
-  | OriginalInputSourceUserSpecifiedMultiFile
+  | OriginalInputSourceSingleFileNotRecursive FilePath
+  | OriginalInputSourceMultiFile
       (Producer WhereDidFileComeFrom HighlightMWithIO ())
 
 createOriginalInputSource :: HighlightM OriginalInputSource
@@ -150,37 +159,85 @@ createOriginalInputSource = do
   case (inputFilenames, recursive) of
     ([], _) -> pure OriginalInputSourceStdin
     ([InputFilename singleFile], NotRecursive) ->
-      pure $ OriginalInputSourceUserSpecifiedSingleFileNotRecursive $
-        FileSpecifiedByUser singleFile
-    ([InputFilename singleFile], Recursive) ->
-      undefined
-      -- createMultiFile [FileSpecifiedByUser singleFile]
+      pure $ OriginalInputSourceSingleFileNotRecursive singleFile
+    ([InputFilename singleFile], Recursive) -> do
+      producer <-
+        unHighlightMWithIO $ createMultiFile [FileSpecifiedByUser singleFile]
+      pure $ OriginalInputSourceMultiFile producer
     (multiFiles, NotRecursive) ->
-      pure .  OriginalInputSourceUserSpecifiedMultiFile .  each $
+      pure .  OriginalInputSourceMultiFile .  each $
         fmap (FileSpecifiedByUser . unInputFilename) multiFiles
-    (multiFiles, Recursive) -> undefined
-      -- createMultiFile (fmap FileSpecifiedByUser multiFiles) Recursive
+    (multiFiles, Recursive) -> do
+      producer <-
+        unHighlightMWithIO $
+          createMultiFile $
+            fmap (FileSpecifiedByUser . unInputFilename) multiFiles
+      pure $ OriginalInputSourceMultiFile producer
 
-producerForFile
-  :: MultiFileType
-  -> FilePath
-  -> Lala
-producerForFile SingleFileNotRecursive filePath = do
+createMultiFile
+  :: [WhereDidFileComeFrom]
+  -> HighlightMWithIO (Producer WhereDidFileComeFrom HighlightMWithIO ())
+createMultiFile whereDids = do
+  let listT =
+        asum $ fmap (childOf . decodeString . getFilePathFromWhereDid) whereDids
+      producer = enumerate listT :: Producer Path.FilePath HighlightMWithIO ()
+  undefined
+
+
+data InputData
+  = InputDataStdin
+      (FreeT (Producer ByteString HighlightMWithIO) HighlightMWithIO ())
+  | InputDataSingleFile
+      FilePath
+      ( Either
+          IOException
+          (FreeT (Producer ByteString HighlightMWithIO) HighlightMWithIO ())
+      )
+  | InputDataMultiFile Lala
+
+getInputDataFromOriginalInputSource :: OriginalInputSource -> HighlightM InputData
+getInputDataFromOriginalInputSource OriginalInputSourceStdin =
+  pure . InputDataStdin $ stdin ^. Pipes.ByteString.lines
+getInputDataFromOriginalInputSource
+    (OriginalInputSourceSingleFileNotRecursive filePath) = do
+  producer <- unHighlightMWithIO $ producerForSingleFile filePath
+  pure $ InputDataSingleFile filePath producer
+
+producerForSingleFile
+  :: FilePath
+  -> HighlightMWithIO
+      ( Either
+          IOException
+          (FreeT (Producer ByteString HighlightMWithIO) HighlightMWithIO ())
+      )
+producerForSingleFile filePath = do
   eitherHandle <- openFilePathForReading filePath
   case eitherHandle of
     Right handle -> do
       let linesFreeTProducer = fromHandle handle ^. Pipes.ByteString.lines
-      yield $ Right (InputSourceSingleFile filePath, linesFreeTProducer)
-    Left ioerr -> yield $ Left (ioerr, filePath)
-producerForFile SingleFileRecursive filePath = do
-  eitherHandle <- openFilePathForReading filePath
-  case eitherHandle of
-    Right handle -> do
-      let linesFreeTProducer = fromHandle handle ^. Pipes.ByteString.lines
-      yield $ Right (InputSourceSingleFile filePath, linesFreeTProducer)
-    Left ioerr -> do
-      -- filePathProducer <- enumerate $ childOf filePath
-      undefined
+      pure $ Right linesFreeTProducer
+    Left ioerr -> pure $ Left ioerr
+
+-- producerForFile
+--   :: MultiFileType
+--   -> FilePath
+--   -> Lala
+-- producerForFile SingleFileNotRecursive filePath = do
+--   eitherHandle <- openFilePathForReading filePath
+--   case eitherHandle of
+--     Right handle -> do
+--       let linesFreeTProducer = fromHandle handle ^. Pipes.ByteString.lines
+--       yield $ Right (InputSourceSingleFile filePath, linesFreeTProducer)
+--     Left ioerr -> yield $ Left (ioerr, filePath)
+-- producerForFile SingleFileRecursive filePath = do
+--   eitherHandle <- openFilePathForReading filePath
+--   case eitherHandle of
+--     Right handle -> do
+--       let linesFreeTProducer = fromHandle handle ^. Pipes.ByteString.lines
+--       yield $ Right (InputSourceSingleFile filePath, linesFreeTProducer)
+--     Left ioerr -> do
+--       -- filePathProducer <- enumerate $ childOf filePath
+--       undefined
 
 
 openFilePathForReading :: MonadIO m => FilePath -> m (Either IOException Handle)

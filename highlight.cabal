@@ -35,6 +35,7 @@ library
                      , pipes-bytestring >= 2
                      , regex >= 1.0
                      , regex-with-pcre >= 1.0
+                     , system-filepath >= 0.4
                      , text >= 1.2
                      , transformers >= 0.4
   default-language:    Haskell2010
