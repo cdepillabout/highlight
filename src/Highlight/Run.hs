@@ -2,6 +2,7 @@
 
 module Highlight.Run where
 
+import Control.Monad.Trans.Free (FreeT)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as ByteString
 import Data.ByteString.Unsafe (unsafePackCStringLen)
@@ -9,6 +10,8 @@ import Data.Monoid ((<>))
 import Data.Text (pack)
 import Data.Text.Encoding (encodeUtf8)
 import Foreign.C (newCStringLen)
+import Pipes (Producer)
+import Pipes.ByteString (lines)
 import System.Exit (ExitCode(ExitFailure), exitWith)
 import Text.RE.PCRE
        (RE, SimpleREOptions(MultilineInsensitive, MultilineSensitive),
@@ -56,7 +59,7 @@ compileHighlightRegexWithErr = do
   rawRegex <- getRawRegex
   case compileHighlightRegex ignoreCase rawRegex of
     Just re -> pure re
-    Nothing -> throwHighlightErr $ HighlightRegexCompileErr rawRegex
+    Nothing -> throwRegexCompileErr rawRegex
 
 convertStringToRawByteString :: String -> IO ByteString
 convertStringToRawByteString str = do
@@ -73,4 +76,45 @@ compileHighlightRegex ignoreCase (RawRegex rawRegex) =
           DoNotIgnoreCase -> MultilineSensitive
   in compileRegexWith simpleREOptions rawRegex
 
--- getInput :: HighlightM (Source 
+data InputSource
+  = InputSourceStdin
+  | InputSourceSingleFile FilePath
+  | InputSourceMultiFile FilePath
+
+getInput
+  :: HighlightM (Producer (InputSource, FreeT (Producer ByteString m) m x) m x)
+getInput = do
+  inputFileNames <- getInputFileNames
+  recursive <- getRecursive
+  case (inputFileNames, recursive) of
+    ([], _) -> undefined -- from stdin
+    ([singleFile], NotRecursive) ->
+        producerForFile SingleFileNotRecursive singleFile
+    ([singleFile], Recursive) ->
+        producerForFile SingleFileRecursive singleFile
+    (multiFiles, NotRecursive) -> undefined
+    (multiFiles, Recursive) -> undefined
+
+data MultiFileType
+  = MultiFileNotRecursive
+  | MultiFileRecursive
+  | SingleFileNotRecursive
+  | SingleFileRecursive
+
+producerForFile
+  :: MultiFileType
+  -> FilePath
+  -> Producer (InputSource, FreeT (Producer ByteString m) m x) m x
+producerForFile multiFileType filePath = do
+  case (multiFileType, recursive) of
+    (PossiblyMultiFiles, NotRecursive) -> do
+      eitherHandle <- try $ openBinaryFile filePath ReadMode
+      case eitherHandler of
+        Left ioerr ->
+          if | isAlreadyInUseError ioerr -> throwFileAlreadyInUseErr filePath
+             | isDoesNotExistError ioerr -> throwFileDoesNotExistErr filePath
+             | isPermissionError ioerr -> throwFilePermissionErr filePath
+             | otherwise -> throwIOerr ioerr
+        Right handle -> do
+          let linesFreeTProducer = fromHandle handle ^. lines
+          yield (InputSourceSingleFile filePath, linesFreeTProducer)

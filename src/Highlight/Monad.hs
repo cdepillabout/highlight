@@ -40,3 +40,18 @@ getInputFilenames = optionsInputFilenames <$> getOptions
 
 throwHighlightErr :: Monad m => HighlightErr -> HighlightT m a
 throwHighlightErr = HighlightT . throwError
+
+throwRegexCompileErr :: Monad m => RawRegex -> HighlightT m a
+throwRegexCompileErr = throwHighlightErr . HighlightRegexCompileErr
+
+throwFileErr :: Monad m => FileErr -> HighlightT m a
+throwFileErr = throwHighlightErr . HighlightFileErr
+
+throwFileAlreadyInUseErr :: Monad m => FilePath -> HighlightT m a
+throwFileAlreadyInUseErr = throwFileErr . FileAlreadyInUseErr
+
+throwFileDoesNotExistErr :: Monad m => FilePath -> HighlightT m a
+throwFileDoesNotExistErr = throwFileErr . FileDoesNotExistErr
+
+throwFilePermissionErr :: Monad m => FilePath -> HighlightT m a
+throwFilePermissionErr = throwFileErr . FilePermissionErr

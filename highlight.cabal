@@ -21,13 +21,16 @@ library
                      , Highlight.Options
                      , Highlight.Monad
                      , Highlight.Run
+                     , Highlight.Util
   build-depends:       base >= 4.8 && < 5
                      , ansi-terminal >= 0.6
                      , bytestring >= 0.10
                      , containers >= 0.5
+                     , free >= 4
                      , mtl >= 2.2
                      , optparse-applicative >= 0.11
-                     , parsec >= 3.1
+                     , pipes >= 4
+                     , pipes-bytestring >= 2
                      , regex >= 1.0
                      , regex-with-pcre >= 1.0
                      , text >= 1.2
