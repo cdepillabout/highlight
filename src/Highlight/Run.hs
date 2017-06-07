@@ -20,7 +20,7 @@ import Text.RE.Replace (replaceAll)
 import Highlight.Error (HighlightErr(..))
 import Highlight.Monad
        (HighlightM, createInputData, getIgnoreCase, getRawRegex,
-        runHighlightM, throwRegexCompileErr)
+        handleInputData, runHighlightM, throwRegexCompileErr)
 import Highlight.Options
        (IgnoreCase(IgnoreCase, DoNotIgnoreCase), Options(..),
         RawRegex(RawRegex))
@@ -43,6 +43,7 @@ prog :: HighlightM ()
 prog = do
   regex <- compileHighlightRegexWithErr
   inputData <- createInputData
+  handleInputData inputData
   pure ()
 
 -- run opts = do

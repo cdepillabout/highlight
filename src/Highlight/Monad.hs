@@ -13,12 +13,15 @@ import Control.Monad.Trans.Free (FreeT)
 import Data.ByteString (ByteString)
 import Data.DirStream (childOf)
 import Data.Foldable (asum)
-import Filesystem.Path.CurrentOS (decodeString)
+import Filesystem.Path.CurrentOS (decodeString, encodeString)
 import qualified Filesystem.Path.CurrentOS as Path
-import Pipes (Producer, each, enumerate, yield)
+import Pipes
+       (Pipe, Producer, (>->), await, each, enumerate, for, runEffect,
+        yield)
 import Pipes.ByteString (fromHandle, stdin)
 import qualified Pipes.ByteString
 import Pipes.Prelude (toListM)
+import qualified Pipes.Prelude
 import Pipes.Safe (SafeT, runSafeT)
 import System.IO (Handle, IOMode(ReadMode), openBinaryFile)
 import System.IO.Error
@@ -185,7 +188,7 @@ producerForSingleFilePossiblyRecursive whereDid = do
   case eitherHandle of
     Right handle -> do
       let linesFreeTProducer = fromHandle handle ^. Pipes.ByteString.lines
-      pure $ yield (whereDid,  Right linesFreeTProducer)
+      pure $ yield (whereDid, Right linesFreeTProducer)
     Left ioerr -> do
       -- let listT =
       --       asum $ fmap (childOf . decodeString . getFilePathFromWhereDid) whereDids
@@ -193,9 +196,10 @@ producerForSingleFilePossiblyRecursive whereDid = do
       let listT = childOf $ decodeString filePath
           producer = enumerate listT :: Producer Path.FilePath (SafeT IO) ()
           lIO = runSafeT $ toListM producer :: IO [Path.FilePath]
-      l <- liftIO lIO
-      liftIO $ print l
-      undefined
+      fileList <- liftIO lIO
+      let whereDids = fmap (FileFoundRecursively . encodeString) fileList
+      lalas <- traverse producerForSingleFilePossiblyRecursive whereDids
+      pure $ for (each lalas) id
 
 -- createMultiFile
 --   :: [WhereDidFileComeFrom]
@@ -254,6 +258,16 @@ producerForSingleFile filePath = do
 --       -- filePathProducer <- enumerate $ childOf filePath
 --       undefined
 
+handleInputData :: InputData -> HighlightM ()
+handleInputData (InputDataMultiFile lala) =
+  unHighlightMWithIO $ runEffect $ lala >-> f >-> Pipes.Prelude.print
+  where
+    f :: Pipe (WhereDidFileComeFrom, b) String HighlightMWithIO ()
+    f = do
+      (whereDid, _) <- await
+      let filePath = getFilePathFromWhereDid whereDid
+      yield filePath
+      f
 
 openFilePathForReading :: MonadIO m => FilePath -> m (Either IOException Handle)
 openFilePathForReading filePath =
