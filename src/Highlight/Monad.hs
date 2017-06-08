@@ -1,6 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Highlight.Monad where
 
@@ -12,7 +13,6 @@ import Control.Monad.Reader (ReaderT, ask, runReaderT)
 import Control.Monad.Trans.Free (FreeT)
 import Data.ByteString (ByteString)
 import Data.DirStream (childOf)
-import Data.Foldable (asum)
 import Filesystem.Path.CurrentOS (decodeString, encodeString)
 import qualified Filesystem.Path.CurrentOS as Path
 import Pipes
@@ -24,13 +24,11 @@ import Pipes.Prelude (toListM)
 import qualified Pipes.Prelude
 import Pipes.Safe (SafeT, runSafeT)
 import System.IO (Handle, IOMode(ReadMode), openBinaryFile)
-import System.IO.Error
-       (isAlreadyInUseError, isDoesNotExistError, isPermissionError)
 
-import Highlight.Error (FileErr(..), HighlightErr(..))
+import Highlight.Error (HighlightErr(..))
 import Highlight.Options
        (ColorGrepFilenames, IgnoreCase,
-        InputFilename(InputFilename, unInputFilename), Options(..),
+        InputFilename(InputFilename), Options(..),
         RawRegex, Recursive(NotRecursive, Recursive))
 
 
@@ -102,36 +100,12 @@ throwRegexCompileErr = throwHighlightErr . HighlightRegexCompileErr
 -- Pipes --
 -----------
 
-data InputSource
-  = InputSourceStdin
-  | InputSourceSingleFile FilePath
-  | InputSourceMultiFile FilePath
-
--- getInput
---   :: HighlightM (Producer (InputSource, FreeT (Producer ByteString m) m x) m x)
--- getInput = do
---   inputFileNames <- getInputFileNames
---   recursive <- getRecursive
---   case (inputFileNames, recursive) of
---     ([], _) -> undefined -- from stdin
---     ([singleFile], NotRecursive) ->
---         producerForFile SingleFileNotRecursive singleFile
---     ([singleFile], Recursive) ->
---         producerForFile SingleFileRecursive singleFile
---     (multiFiles, NotRecursive) -> undefined
---     (multiFiles, Recursive) -> undefined
-
-data MultiFileType
-  = MultiFileNotRecursive
-  | MultiFileRecursive
-  | SingleFileNotRecursive
-  | SingleFileRecursive
 
 type Lala =
   Producer
     ( WhereDidFileComeFrom
     , Either
-        IOException
+        (IOException, IOException)
         ( FreeT
             (Producer ByteString HighlightMWithIO)
             HighlightMWithIO
@@ -149,26 +123,26 @@ getFilePathFromWhereDid :: WhereDidFileComeFrom -> FilePath
 getFilePathFromWhereDid (FileSpecifiedByUser fp) = fp
 getFilePathFromWhereDid (FileFoundRecursively fp) = fp
 
--- | TODO: This can't use OriginalInputSource, so we actually need to return
--- 'InputData'.
 createInputData :: HighlightM InputData
 createInputData = do
-  inputFilenames <- getInputFilenames
+  inputFilenames <-
+    fmap (FileSpecifiedByUser . unInputFilename) getInputFilenames
   recursive <- getRecursive
   case (inputFilenames, recursive) of
     ([], _) ->
       pure . InputDataStdin $ stdin ^. Pipes.ByteString.lines
-    ([InputFilename singleFile], NotRecursive) -> do
+    ([singleFile], NotRecursive) -> do
       eitherProducer <- unHighlightMWithIO $ producerForSingleFile singleFile
-      pure $ InputDataSingleFile singleFile eitherProducer
-    ([InputFilename singleFile], Recursive) -> do
+      pure $
+        InputDataSingleFile
+          (getFilePathFromWhereDid singleFile)
+          eitherProducer
+    ([singleFile], Recursive) -> do
       lala <-
-        unHighlightMWithIO $
-          producerForSingleFilePossiblyRecursive $
-            FileSpecifiedByUser singleFile
+        unHighlightMWithIO $ producerForSingleFilePossiblyRecursive singleFile
       pure $ InputDataMultiFile lala
     (multiFiles, NotRecursive) ->
-      undefined
+      traverse producerForSingleFile 
       -- pure .  OriginalInputSourceMultiFile .  each $
       --   fmap (FileSpecifiedByUser . unInputFilename) multiFiles
     (multiFiles, Recursive) -> do
@@ -189,17 +163,17 @@ producerForSingleFilePossiblyRecursive whereDid = do
     Right handle -> do
       let linesFreeTProducer = fromHandle handle ^. Pipes.ByteString.lines
       pure $ yield (whereDid, Right linesFreeTProducer)
-    Left ioerr -> do
-      -- let listT =
-      --       asum $ fmap (childOf . decodeString . getFilePathFromWhereDid) whereDids
-      --     producer = enumerate listT :: Producer Path.FilePath (SafeT IO) ()
+    Left fileIOErr -> do
       let listT = childOf $ decodeString filePath
           producer = enumerate listT :: Producer Path.FilePath (SafeT IO) ()
           lIO = runSafeT $ toListM producer :: IO [Path.FilePath]
-      fileList <- liftIO lIO
-      let whereDids = fmap (FileFoundRecursively . encodeString) fileList
-      lalas <- traverse producerForSingleFilePossiblyRecursive whereDids
-      pure $ for (each lalas) id
+      eitherFileList <- liftIO (try lIO)
+      case eitherFileList of
+        Left dirIOErr -> pure $ yield (whereDid, Left (fileIOErr, dirIOErr))
+        Right fileList -> do
+          let whereDids = fmap (FileFoundRecursively . encodeString) fileList
+          lalas <- traverse producerForSingleFilePossiblyRecursive whereDids
+          pure $ for (each lalas) id
 
 -- createMultiFile
 --   :: [WhereDidFileComeFrom]
@@ -225,7 +199,8 @@ data InputData
 producerForSingleFile
   :: FilePath
   -> HighlightMWithIO
-      ( Either
+      ( FilePath
+      , Either
           IOException
           (FreeT (Producer ByteString HighlightMWithIO) HighlightMWithIO ())
       )
@@ -234,29 +209,9 @@ producerForSingleFile filePath = do
   case eitherHandle of
     Right handle -> do
       let linesFreeTProducer = fromHandle handle ^. Pipes.ByteString.lines
-      pure $ Right linesFreeTProducer
-    Left ioerr -> pure $ Left ioerr
+      pure $ (filePath, Right linesFreeTProducer)
+    Left ioerr -> pure $ (filePath, Left ioerr)
 
--- producerForFile
---   :: MultiFileType
---   -> FilePath
---   -> Lala
--- producerForFile SingleFileNotRecursive filePath = do
---   eitherHandle <- openFilePathForReading filePath
---   case eitherHandle of
---     Right handle -> do
---       let linesFreeTProducer = fromHandle handle ^. Pipes.ByteString.lines
---       yield $ Right (InputSourceSingleFile filePath, linesFreeTProducer)
---     Left ioerr -> yield $ Left (ioerr, filePath)
--- producerForFile SingleFileRecursive filePath = do
---   eitherHandle <- openFilePathForReading filePath
---   case eitherHandle of
---     Right handle -> do
---       let linesFreeTProducer = fromHandle handle ^. Pipes.ByteString.lines
---       yield $ Right (InputSourceSingleFile filePath, linesFreeTProducer)
---     Left ioerr -> do
---       -- filePathProducer <- enumerate $ childOf filePath
---       undefined
 
 handleInputData :: InputData -> HighlightM ()
 handleInputData (InputDataMultiFile lala) =
@@ -273,5 +228,4 @@ openFilePathForReading :: MonadIO m => FilePath -> m (Either IOException Handle)
 openFilePathForReading filePath =
   liftIO . try $ openBinaryFile filePath ReadMode
 
--- throwIOError :: MonadIO m => IOException -> m a
--- throwIOError = liftIO . ioError
+combineProducers :: 
