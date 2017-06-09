@@ -93,9 +93,6 @@ throwRegexCompileErr = throwHighlightErr . HighlightRegexCompileErr
 -- Pipes --
 -----------
 
-
--- | TODO: Change this to 'Lala m a' where @m@ will be 'HighlightMWithIO' and
--- @a@ will be ().
 type Lala m a =
   Producer
     ( WhereDidFileComeFrom
