@@ -15,7 +15,7 @@ import Control.Monad.Trans.Free (FreeT)
 import Data.ByteString (ByteString)
 import Data.DirStream (childOf)
 import Data.List.NonEmpty (NonEmpty((:|)))
-import Data.Semigroup (Semigroup, (<>))
+import Data.Semigroup ((<>))
 import Filesystem.Path.CurrentOS (decodeString, encodeString)
 import qualified Filesystem.Path.CurrentOS as Path
 import Pipes
@@ -27,15 +27,15 @@ import Pipes.Group (concats)
 import Pipes.Prelude (toListM)
 import qualified Pipes.Prelude as Pipes
 import Pipes.Safe (SafeT, runSafeT)
-import System.IO (Handle, IOMode(ReadMode), openBinaryFile)
 
 import Highlight.Error (HighlightErr(..))
 import Highlight.Options
        (ColorGrepFilenames(ColorGrepFilenames, DoNotColorGrepFileNames),
         IgnoreCase, InputFilename(unInputFilename), Options(..), RawRegex,
         Recursive(Recursive))
-import Highlight.Util (unsafeConvertStringToRawByteString)
-
+import Highlight.Util
+       (combineApplicatives, openFilePathForReading,
+        unsafeConvertStringToRawByteString)
 
 -------------------------
 -- The Highlight Monad --
@@ -134,10 +134,6 @@ createInputData = do
         unHighlightMWithIO $ computeFilenameHandlingFromFiles lala
       pure $ InputDataFile filenameHandling lala
 
-combineApplicatives :: (Applicative f, Semigroup a) => f a -> f a -> f a
-combineApplicatives action1 action2 =
-  (<>) <$> action1 <*> action2
-
 -- | TODO: This is a complicated function.
 producerForSingleFilePossiblyRecursive
   :: Recursive
@@ -209,12 +205,6 @@ handleInputData (InputDataFile filenameHandling lala) = do
       let filePath = getFilePathFromWhereDid whereDid
       yield filePath
       f
-
--- | TODO: Do I need to register this Handle to close?  Or does it do it
--- automatically on it's finalizer?
-openFilePathForReading :: MonadIO m => FilePath -> m (Either IOException Handle)
-openFilePathForReading filePath =
-  liftIO . try $ openBinaryFile filePath ReadMode
 
 -----------------------
 -- Filename Handling --
