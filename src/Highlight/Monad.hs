@@ -12,7 +12,7 @@ import Control.Monad.Except (ExceptT, runExceptT, throwError)
 import Control.Monad.IO.Class (MonadIO(liftIO))
 import Control.Monad.Reader (ReaderT, ask, runReaderT)
 import Control.Monad.Trans.Free (FreeT)
-import Data.ByteString (ByteString)
+import Data.ByteString (ByteString, hGetLine)
 import Data.DirStream (childOf)
 import Data.List.NonEmpty (NonEmpty((:|)))
 import Data.Semigroup ((<>))
@@ -21,12 +21,13 @@ import qualified Filesystem.Path.CurrentOS as Path
 import Pipes
        (Pipe, Producer, (>->), await, each, enumerate, for, next,
         runEffect, yield)
-import Pipes.ByteString (fromHandle, stdin)
+-- import Pipes.ByteString (fromHandle, stdin)
 import qualified Pipes.ByteString
 import Pipes.Group (concats)
 import Pipes.Prelude (toListM)
 import qualified Pipes.Prelude as Pipes
 import Pipes.Safe (SafeT, runSafeT)
+import System.IO (Handle, openBinaryFile, stdin)
 
 import Highlight.Error (HighlightErr(..))
 import Highlight.Options
@@ -98,7 +99,7 @@ type Lala m a =
     ( WhereDidFileComeFrom
     , Either
         (IOException, Maybe IOException)
-        (FreeT (Producer ByteString m) m a)
+        (Producer ByteString m a)
     )
     m
     a
@@ -122,7 +123,7 @@ createInputData = do
       -- TODO: This doesn't work when the input file has lines over 32kb.
       -- Need to rewrite 'stdin' and 'lines'.
       let filenameHandling = computeFilenameHandlingFromStdin colorGrepFilenames
-      pure . InputDataStdin filenameHandling $ stdin ^. Pipes.ByteString.lines
+      pure . InputDataStdin filenameHandling $ fromHandleLines stdin
     (file1:files) -> do
       lalas <-
         unHighlightMWithIO $
@@ -146,8 +147,8 @@ producerForSingleFilePossiblyRecursive recursive whereDid = do
     Right handle -> do
       -- TODO: This doesn't work when the input file has lines over 32kb.
       -- Need to rewrite 'fromHandle' and 'lines'.
-      let linesFreeTProducer = fromHandle handle ^. Pipes.ByteString.lines
-      pure $ yield (whereDid, Right linesFreeTProducer)
+      let linesProducer = fromHandleLines handle
+      pure $ yield (whereDid, Right linesProducer)
     Left fileIOErr ->
       if recursive == Recursive
         then do
@@ -170,10 +171,20 @@ producerForSingleFilePossiblyRecursive recursive whereDid = do
         else
           pure $ yield (whereDid, Left (fileIOErr, Nothing))
 
+fromHandleLines :: forall m. MonadIO m => Handle -> Producer ByteString m ()
+fromHandleLines handle = go
+  where
+    go :: Producer ByteString m ()
+    go = do
+      eitherLine <- liftIO . try $ hGetLine handle
+      case eitherLine of
+        Left (ioerr :: IOException) -> return ()
+        Right line -> yield line *> go
+
 data InputData m a
   = InputDataStdin
       FilenameHandlingFromStdin
-      (FreeT (Producer ByteString m) m a)
+      (Producer ByteString m a)
   | InputDataFile
       FilenameHandlingFromFiles
       (Lala m a)
@@ -183,23 +194,22 @@ handleInputData
   -> (FilenameHandlingFromFiles -> Lala HighlightMWithIO () -> ())
   -> InputData HighlightMWithIO ()
   -> HighlightM ()
-handleInputData f _ (InputDataStdin filenameHandling freeT) = do
+handleInputData f _ (InputDataStdin filenameHandling producer) = do
   unHighlightMWithIO . liftIO $ print filenameHandling
   unHighlightMWithIO . runEffect $
-    concats freeT >->
-    Pipes.map (f filenameHandling) >->
-    Pipes.ByteString.stdout
+    producer >-> pipe (f filenameHandling) >-> Pipes.ByteString.stdout
   where
-    -- f :: Int -> Pipe ByteString ByteString HighlightMWithIO ()
-    -- f int = do
-    --   inputLine <- await
-    --   let outputLine =
-    --         "line " <>
-    --         unsafeConvertStringToRawByteString (show int) <>
-    --         ": " <>
-    --         inputLine
-    --   yield outputLine
-    --   f (int + 1)
+    pipe
+      :: forall m. Monad m
+      => (ByteString -> ByteString) -> Pipe ByteString ByteString m ()
+    pipe func = go
+      where
+        go :: Pipe ByteString ByteString m ()
+        go = do
+          inputLine <- await
+          yield $ func inputLine
+          yield "\n"
+          go
 handleInputData _ _ (InputDataFile filenameHandling lala) = do
   unHighlightMWithIO . liftIO $ print filenameHandling
   unHighlightMWithIO . runEffect $
