@@ -1,6 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Highlight.Monad where
@@ -33,6 +34,7 @@ import Highlight.Options
        (ColorGrepFilenames, IgnoreCase,
         InputFilename(unInputFilename), Options(..),
         RawRegex, Recursive(Recursive))
+import Highlight.Util (unsafeConvertStringToRawByteString)
 
 
 -------------------------
@@ -166,28 +168,25 @@ producerForSingleFilePossiblyRecursive recursive whereDid = do
         else
           pure $ yield (whereDid, Left (fileIOErr, Nothing))
 
--- createMultiFile
---   :: [WhereDidFileComeFrom]
---   -> HighlightMWithIO (Producer WhereDidFileComeFrom HighlightMWithIO ())
--- createMultiFile whereDids = do
---   let listT =
---         asum $ fmap (childOf . decodeString . getFilePathFromWhereDid) whereDids
---       producer = enumerate listT :: Producer Path.FilePath HighlightMWithIO ()
---   undefined
-
-
 data InputData m a
-  = InputDataStdin
-      (FreeT (Producer ByteString m) m a)
+  = InputDataStdin (FreeT (Producer ByteString m) m a)
   | InputDataFile (Lala HighlightMWithIO a)
 
 handleInputData :: InputData HighlightMWithIO () -> HighlightM ()
 handleInputData (InputDataStdin freeT) =
   unHighlightMWithIO . runEffect $
-    concats freeT >-> Pipes.map (f 0) >-> Pipes.print
+    concats freeT >-> f 0 >-> Pipes.print
   where
-    f :: Int -> ByteString -> ByteString
-    f int inputLine = undefined
+    f :: Int -> Pipe ByteString ByteString HighlightMWithIO ()
+    f int = do
+      inputLine <- await
+      let outputLine =
+            "line " <>
+            unsafeConvertStringToRawByteString (show int) <>
+            ": " <>
+            inputLine
+      yield outputLine
+      f (int + 1)
 handleInputData (InputDataFile lala) =
   unHighlightMWithIO . runEffect $
     lala >-> f >-> Pipes.print
