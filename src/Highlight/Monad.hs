@@ -22,8 +22,9 @@ import Pipes
         yield)
 import Pipes.ByteString (fromHandle, stdin)
 import qualified Pipes.ByteString
+import Pipes.Group (concats)
 import Pipes.Prelude (toListM)
-import qualified Pipes.Prelude
+import qualified Pipes.Prelude as Pipes
 import Pipes.Safe (SafeT, runSafeT)
 import System.IO (Handle, IOMode(ReadMode), openBinaryFile)
 
@@ -93,19 +94,15 @@ throwRegexCompileErr = throwHighlightErr . HighlightRegexCompileErr
 
 -- | TODO: Change this to 'Lala m a' where @m@ will be 'HighlightMWithIO' and
 -- @a@ will be ().
-type Lala =
+type Lala m a =
   Producer
     ( WhereDidFileComeFrom
     , Either
         (IOException, Maybe IOException)
-        ( FreeT
-            (Producer ByteString HighlightMWithIO)
-            HighlightMWithIO
-            ()
-        )
+        (FreeT (Producer ByteString HighlightMWithIO) m a)
     )
-    HighlightMWithIO
-    ()
+    m
+    a
 
 data WhereDidFileComeFrom
   = FileSpecifiedByUser FilePath
@@ -115,7 +112,7 @@ getFilePathFromWhereDid :: WhereDidFileComeFrom -> FilePath
 getFilePathFromWhereDid (FileSpecifiedByUser fp) = fp
 getFilePathFromWhereDid (FileFoundRecursively fp) = fp
 
-createInputData :: HighlightM InputData
+createInputData :: HighlightM (InputData HighlightMWithIO ())
 createInputData = do
   inputFilenames <-
     fmap (FileSpecifiedByUser . unInputFilename) <$> getInputFilenames
@@ -123,11 +120,6 @@ createInputData = do
   case inputFilenames of
     [] ->
       pure . InputDataStdin $ stdin ^. Pipes.ByteString.lines
-    [singleFile] -> do
-      lala <-
-        unHighlightMWithIO $
-          producerForSingleFilePossiblyRecursive recursive singleFile
-      pure $ InputDataFile lala
     (file1:files) -> do
       lalas <-
         unHighlightMWithIO $
@@ -144,7 +136,7 @@ combineApplicatives action1 action2 =
 producerForSingleFilePossiblyRecursive
   :: Recursive
   -> WhereDidFileComeFrom
-  -> HighlightMWithIO Lala
+  -> HighlightMWithIO (Lala HighlightMWithIO ())
 producerForSingleFilePossiblyRecursive recursive whereDid = do
   let filePath = getFilePathFromWhereDid whereDid
   eitherHandle <- openFilePathForReading filePath
@@ -184,14 +176,21 @@ producerForSingleFilePossiblyRecursive recursive whereDid = do
 --   undefined
 
 
-data InputData
+data InputData m a
   = InputDataStdin
-      (FreeT (Producer ByteString HighlightMWithIO) HighlightMWithIO ())
-  | InputDataFile Lala
+      (FreeT (Producer ByteString m) m a)
+  | InputDataFile (Lala HighlightMWithIO a)
 
-handleInputData :: InputData -> HighlightM ()
+handleInputData :: InputData HighlightMWithIO () -> HighlightM ()
+handleInputData (InputDataStdin freeT) =
+  unHighlightMWithIO . runEffect $
+    concats freeT >-> Pipes.map (f 0) >-> Pipes.print
+  where
+    f :: Int -> ByteString -> ByteString
+    f int inputLine = undefined
 handleInputData (InputDataFile lala) =
-  unHighlightMWithIO $ runEffect $ lala >-> f >-> Pipes.Prelude.print
+  unHighlightMWithIO . runEffect $
+    lala >-> f >-> Pipes.print
   where
     f :: Pipe (WhereDidFileComeFrom, b) String HighlightMWithIO ()
     f = do
