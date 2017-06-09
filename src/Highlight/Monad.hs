@@ -239,7 +239,10 @@ data FilenameHandlingFromFiles
   deriving (Eq, Read, Show)
 
 computeFilenameHandlingFromFiles
-  :: Lala HighlightMWithIO () -> HighlightMWithIO FilenameHandlingFromFiles
+  :: forall a m r.
+     Monad m
+  => Producer (WhereDidFileComeFrom, a) m r
+  -> m FilenameHandlingFromFiles
 computeFilenameHandlingFromFiles producer = do
   eitherFirstFile <- next producer
   case eitherFirstFile of
