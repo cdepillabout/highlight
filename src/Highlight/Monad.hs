@@ -121,6 +121,8 @@ createInputData = do
   recursive <- getRecursive
   case inputFilenames of
     [] ->
+      -- TODO: This doesn't work when the input file has lines over 32kb.
+      -- Need to rewrite 'stdin' and 'lines'.
       pure . InputDataStdin $ stdin ^. Pipes.ByteString.lines
     (file1:files) -> do
       lalas <-
@@ -144,6 +146,8 @@ producerForSingleFilePossiblyRecursive recursive whereDid = do
   eitherHandle <- openFilePathForReading filePath
   case eitherHandle of
     Right handle -> do
+      -- TODO: This doesn't work when the input file has lines over 32kb.
+      -- Need to rewrite 'fromHandle' and 'lines'.
       let linesFreeTProducer = fromHandle handle ^. Pipes.ByteString.lines
       pure $ yield (whereDid, Right linesFreeTProducer)
     Left fileIOErr ->
