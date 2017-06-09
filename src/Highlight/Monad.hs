@@ -211,6 +211,7 @@ handleInputData f _ (InputDataStdin filenameHandling producer) = do
           yield "\n"
           go
 handleInputData _ _ (InputDataFile filenameHandling lala) = do
+  -- TODO: I think I can probably use the 'for' function to loop through lala?
   unHighlightMWithIO . liftIO $ print filenameHandling
   unHighlightMWithIO . runEffect $
     lala >-> f >-> Pipes.print
