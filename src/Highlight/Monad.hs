@@ -98,7 +98,7 @@ type Lala m a =
     ( WhereDidFileComeFrom
     , Either
         (IOException, Maybe IOException)
-        (FreeT (Producer ByteString HighlightMWithIO) m a)
+        (FreeT (Producer ByteString m) m a)
     )
     m
     a
