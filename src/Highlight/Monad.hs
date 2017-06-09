@@ -178,23 +178,29 @@ data InputData m a
       FilenameHandlingFromFiles
       (Lala m a)
 
-handleInputData :: InputData HighlightMWithIO () -> HighlightM ()
-handleInputData (InputDataStdin filenameHandling freeT) = do
+handleInputData
+  :: (FilenameHandlingFromStdin -> ByteString -> ByteString)
+  -> (FilenameHandlingFromFiles -> Lala HighlightMWithIO () -> ())
+  -> InputData HighlightMWithIO ()
+  -> HighlightM ()
+handleInputData f _ (InputDataStdin filenameHandling freeT) = do
   unHighlightMWithIO . liftIO $ print filenameHandling
   unHighlightMWithIO . runEffect $
-    concats freeT >-> f 0 >-> Pipes.print
+    concats freeT >->
+    Pipes.map (f filenameHandling) >->
+    Pipes.ByteString.stdout
   where
-    f :: Int -> Pipe ByteString ByteString HighlightMWithIO ()
-    f int = do
-      inputLine <- await
-      let outputLine =
-            "line " <>
-            unsafeConvertStringToRawByteString (show int) <>
-            ": " <>
-            inputLine
-      yield outputLine
-      f (int + 1)
-handleInputData (InputDataFile filenameHandling lala) = do
+    -- f :: Int -> Pipe ByteString ByteString HighlightMWithIO ()
+    -- f int = do
+    --   inputLine <- await
+    --   let outputLine =
+    --         "line " <>
+    --         unsafeConvertStringToRawByteString (show int) <>
+    --         ": " <>
+    --         inputLine
+    --   yield outputLine
+    --   f (int + 1)
+handleInputData _ _ (InputDataFile filenameHandling lala) = do
   unHighlightMWithIO . liftIO $ print filenameHandling
   unHighlightMWithIO . runEffect $
     lala >-> f >-> Pipes.print

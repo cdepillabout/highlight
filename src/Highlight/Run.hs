@@ -19,7 +19,7 @@ import Text.RE.Replace (replaceAll)
 
 import Highlight.Error (HighlightErr(..))
 import Highlight.Monad
-       (HighlightM, createInputData, getIgnoreCase, getRawRegex,
+       (FilenameHandlingFromStdin(..), HighlightM, createInputData, getIgnoreCase, getRawRegex,
         handleInputData, runHighlightM, throwRegexCompileErr)
 import Highlight.Options
        (IgnoreCase(IgnoreCase, DoNotIgnoreCase), Options(..),
@@ -43,8 +43,19 @@ prog :: HighlightM ()
 prog = do
   regex <- compileHighlightRegexWithErr
   inputData <- createInputData
-  handleInputData inputData
+  handleInputData
+    (handleStdinInput regex)
+    (handleFileInput regex)
+    inputData
   pure ()
+
+handleStdinInput :: RE -> FilenameHandlingFromStdin -> ByteString -> ByteString
+handleStdinInput regex FromStdinNoFilename input =
+  let matches = input *=~ regex
+  in replaceAll "($0)" matches
+
+handleFileInput :: a
+handleFileInput = undefined
 
 -- run opts = do
 --   let re = unRegEx $ optionsRegEx opts
