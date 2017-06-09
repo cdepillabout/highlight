@@ -19,8 +19,8 @@ import Data.Semigroup (Semigroup, (<>))
 import Filesystem.Path.CurrentOS (decodeString, encodeString)
 import qualified Filesystem.Path.CurrentOS as Path
 import Pipes
-       (Pipe, Producer, (>->), await, each, enumerate, for, runEffect,
-        yield)
+       (Pipe, Producer, (>->), await, each, enumerate, for, next,
+        runEffect, yield)
 import Pipes.ByteString (fromHandle, stdin)
 import qualified Pipes.ByteString
 import Pipes.Group (concats)
@@ -31,9 +31,9 @@ import System.IO (Handle, IOMode(ReadMode), openBinaryFile)
 
 import Highlight.Error (HighlightErr(..))
 import Highlight.Options
-       (ColorGrepFilenames, IgnoreCase,
-        InputFilename(unInputFilename), Options(..),
-        RawRegex, Recursive(Recursive))
+       (ColorGrepFilenames(ColorGrepFilenames, DoNotColorGrepFileNames),
+        IgnoreCase, InputFilename(unInputFilename), Options(..), RawRegex,
+        Recursive(Recursive))
 import Highlight.Util (unsafeConvertStringToRawByteString)
 
 
@@ -119,18 +119,23 @@ createInputData = do
   inputFilenames <-
     fmap (FileSpecifiedByUser . unInputFilename) <$> getInputFilenames
   recursive <- getRecursive
+  colorGrepFilenames <- getColorGrepFilenames
   case inputFilenames of
-    [] ->
+    [] -> do
       -- TODO: This doesn't work when the input file has lines over 32kb.
       -- Need to rewrite 'stdin' and 'lines'.
-      pure . InputDataStdin $ stdin ^. Pipes.ByteString.lines
+      let filenameHandling = computeFilenameHandlingFromStdin colorGrepFilenames
+      pure . InputDataStdin filenameHandling $ stdin ^. Pipes.ByteString.lines
     (file1:files) -> do
       lalas <-
         unHighlightMWithIO $
           traverse
             (producerForSingleFilePossiblyRecursive recursive)
             (file1 :| files)
-      pure . InputDataFile $ foldl1 combineApplicatives lalas
+      let lala = foldl1 combineApplicatives lalas
+      filenameHandling <-
+        unHighlightMWithIO $ computeFilenameHandlingFromFiles lala
+      pure $ InputDataFile filenameHandling lala
 
 combineApplicatives :: (Applicative f, Semigroup a) => f a -> f a -> f a
 combineApplicatives action1 action2 =
@@ -173,11 +178,16 @@ producerForSingleFilePossiblyRecursive recursive whereDid = do
           pure $ yield (whereDid, Left (fileIOErr, Nothing))
 
 data InputData m a
-  = InputDataStdin (FreeT (Producer ByteString m) m a)
-  | InputDataFile (Lala HighlightMWithIO a)
+  = InputDataStdin
+      FilenameHandlingFromStdin
+      (FreeT (Producer ByteString m) m a)
+  | InputDataFile
+      FilenameHandlingFromFiles
+      (Lala m a)
 
 handleInputData :: InputData HighlightMWithIO () -> HighlightM ()
-handleInputData (InputDataStdin freeT) =
+handleInputData (InputDataStdin filenameHandling freeT) = do
+  unHighlightMWithIO . liftIO $ print filenameHandling
   unHighlightMWithIO . runEffect $
     concats freeT >-> f 0 >-> Pipes.print
   where
@@ -191,7 +201,8 @@ handleInputData (InputDataStdin freeT) =
             inputLine
       yield outputLine
       f (int + 1)
-handleInputData (InputDataFile lala) =
+handleInputData (InputDataFile filenameHandling lala) = do
+  unHighlightMWithIO . liftIO $ print filenameHandling
   unHighlightMWithIO . runEffect $
     lala >-> f >-> Pipes.print
   where
@@ -207,3 +218,37 @@ handleInputData (InputDataFile lala) =
 openFilePathForReading :: MonadIO m => FilePath -> m (Either IOException Handle)
 openFilePathForReading filePath =
   liftIO . try $ openBinaryFile filePath ReadMode
+
+-----------------------
+-- Filename Handling --
+-----------------------
+
+data FilenameHandlingFromStdin
+  = FromStdinNoFilename
+  | FromStdinParseFilenameFromGrep
+  deriving (Eq, Read, Show)
+
+computeFilenameHandlingFromStdin
+  :: ColorGrepFilenames -> FilenameHandlingFromStdin
+computeFilenameHandlingFromStdin ColorGrepFilenames = FromStdinParseFilenameFromGrep
+computeFilenameHandlingFromStdin DoNotColorGrepFileNames = FromStdinNoFilename
+
+data FilenameHandlingFromFiles
+  = FromFilesNoFilename
+  | FromFilesPrintFilename
+  deriving (Eq, Read, Show)
+
+computeFilenameHandlingFromFiles
+  :: Lala HighlightMWithIO () -> HighlightMWithIO FilenameHandlingFromFiles
+computeFilenameHandlingFromFiles producer = do
+  eitherFirstFile <- next producer
+  case eitherFirstFile of
+    Left _ -> pure FromFilesNoFilename
+    Right ((whereDid, _), producer2) ->
+      case whereDid of
+        FileSpecifiedByUser _ -> do
+          eitherSecondFile <- next producer2
+          case eitherSecondFile of
+            Left _ -> pure FromFilesNoFilename
+            Right (_, _) -> pure FromFilesPrintFilename
+        FileFoundRecursively _ -> pure FromFilesPrintFilename
