@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE MultiWayIf #-}
@@ -11,6 +12,7 @@ import Control.Monad.Except (ExceptT, MonadError, runExceptT, throwError)
 import Control.Monad.IO.Class (MonadIO(liftIO))
 import Control.Monad.Reader (MonadReader, ReaderT, ask, reader, runReaderT)
 import Control.Monad.State (MonadState, StateT, evalStateT, get, put)
+import Control.Monad.Trans.Class (lift)
 import Data.ByteString (ByteString, hGetLine)
 import Data.DirStream (childOf)
 import Data.List.NonEmpty (NonEmpty((:|)))
@@ -33,23 +35,54 @@ import Highlight.Util
        (combineApplicatives, convertStringToRawByteString,
         openFilePathForReading)
 
+data FromGrepFilenameState = FromGrepFilenameState
+  { fromGrepFilenameStatePrevFileNum :: Int
+  , fromGrepFilenameStatePrevFilename :: (Maybe ByteString)
+  }
+
+initFromGrepFilenameState :: FromGrepFilenameState
+initFromGrepFilenameState =
+  FromGrepFilenameState
+  { fromGrepFilenameStatePrevFileNum = (-1)
+  , fromGrepFilenameStatePrevFilename = Nothing
+  }
+
+updateFilename :: MonadState FromGrepFilenameState m => ByteString -> m Int
+updateFilename nextFilename = do
+  FromGrepFilenameState prevFileNum prevFilename <- get
+  let justNextFilename = Just nextFilename
+  if justNextFilename == prevFilename
+    then pure prevFileNum
+    else do
+      let nextFileNum = prevFileNum + 1
+      put $ FromGrepFilenameState nextFileNum justNextFilename
+      pure nextFileNum
+
 -------------------------
 -- The Highlight Monad --
 -------------------------
 
 newtype HighlightM a = HighlightM
-  { unHighlightM :: ReaderT Options (StateT Int (ExceptT HighlightErr IO)) a
+  { unHighlightM
+      :: ReaderT
+          Options
+          (StateT FromGrepFilenameState (ExceptT HighlightErr IO))
+          a
   } deriving ( Functor
              , Applicative
              , Monad
              , MonadError HighlightErr
              , MonadIO
              , MonadReader Options
-             , MonadState Int
+             , MonadState FromGrepFilenameState
              )
 
 runHighlightM :: Options -> HighlightM a -> IO (Either HighlightErr a)
-runHighlightM opts = runExceptT . flip evalStateT 0 . flip runReaderT opts . unHighlightM
+runHighlightM opts =
+  runExceptT .
+    flip evalStateT initFromGrepFilenameState .
+    flip runReaderT opts .
+    unHighlightM
 
 ----------------------------------
 -- Get value of certain options --
@@ -178,7 +211,7 @@ data InputData m a
       (Lala m a)
 
 handleInputData
-  :: (FilenameHandlingFromStdin -> ByteString -> ByteString)
+  :: (FilenameHandlingFromStdin -> ByteString -> HighlightM ByteString)
   -> ( FilenameHandlingFromFiles
         -> ByteString
         -> Int
@@ -193,7 +226,7 @@ handleInputData _ f (InputDataFile filenameHandling lala) = do
   handleInputDataFile f filenameHandling lala
 
 handleInputDataStdin
-  :: (FilenameHandlingFromStdin -> ByteString -> ByteString)
+  :: (FilenameHandlingFromStdin -> ByteString -> HighlightM ByteString)
   -> FilenameHandlingFromStdin
   -> Producer ByteString HighlightM ()
   -> HighlightM ()
@@ -204,13 +237,14 @@ handleInputDataStdin f filenameHandling producer = do
   where
     addNewline
       :: forall m. Monad m
-      => (ByteString -> ByteString) -> Pipe ByteString ByteString m ()
+      => (ByteString -> m ByteString) -> Pipe ByteString ByteString m ()
     addNewline func = go
       where
         go :: Pipe ByteString ByteString m ()
         go = do
           inputLine <- await
-          yield $ func inputLine
+          modifiedLine <- lift $ func inputLine
+          yield modifiedLine
           yield "\n"
           go
 

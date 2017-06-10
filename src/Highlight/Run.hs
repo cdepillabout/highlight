@@ -1,7 +1,9 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Highlight.Run where
 
+import Control.Monad.State (MonadState)
 import Data.ByteString (ByteString)
 import Data.IntMap.Strict (IntMap, (!))
 import Data.List.NonEmpty (NonEmpty((:|)))
@@ -20,8 +22,8 @@ import Highlight.Color
 import Highlight.Error (HighlightErr(..))
 import Highlight.Monad
        (FilenameHandlingFromStdin(..), FilenameHandlingFromFiles(..),
-        HighlightM, createInputData, getIgnoreCase, getRawRegex,
-        handleInputData, runHighlightM, throwRegexCompileErr)
+        FromGrepFilenameState, HighlightM, createInputData, getIgnoreCase,
+        getRawRegex, handleInputData, runHighlightM, throwRegexCompileErr)
 import Highlight.Options
        (IgnoreCase(IgnoreCase, DoNotIgnoreCase), Options(..),
         RawRegex(RawRegex))
@@ -50,10 +52,12 @@ prog = do
     inputData
   pure ()
 
-handleStdinInput :: RE -> FilenameHandlingFromStdin -> ByteString -> ByteString
+handleStdinInput
+  :: MonadState FromGrepFilenameState m
+  => RE -> FilenameHandlingFromStdin -> ByteString -> m ByteString
 handleStdinInput _regex FromStdinParseFilenameFromGrep _input = undefined
 handleStdinInput regex FromStdinNoFilename input =
-  highlightMatchInRed regex input
+  pure $ highlightMatchInRed regex input
 
 handleFileInput
   :: RE
