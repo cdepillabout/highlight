@@ -7,21 +7,21 @@
 module Highlight.Monad where
 
 import Control.Exception (IOException, try)
-import Control.Monad.Except (ExceptT, runExceptT, throwError)
+import Control.Monad.Except (ExceptT, MonadError, runExceptT, throwError)
 import Control.Monad.IO.Class (MonadIO(liftIO))
-import Control.Monad.Reader (ReaderT, ask, runReaderT)
+import Control.Monad.Reader (MonadReader, ReaderT, ask, reader, runReaderT)
+import Control.Monad.State (MonadState, StateT, evalStateT, get, put)
 import Data.ByteString (ByteString, hGetLine)
 import Data.DirStream (childOf)
 import Data.List.NonEmpty (NonEmpty((:|)))
 import Filesystem.Path.CurrentOS (decodeString, encodeString)
-import qualified Filesystem.Path.CurrentOS as Path
 import Pipes
        (Effect, Pipe, Producer, (>->), await, each, enumerate, for, next,
         runEffect, yield)
 import qualified Pipes.ByteString
 import Pipes.Prelude (toListM)
 import qualified Pipes.Prelude as Pipes
-import Pipes.Safe (SafeT, runSafeT)
+import Pipes.Safe (runSafeT)
 import System.IO (Handle, stdin)
 
 import Highlight.Error (HighlightErr(..))
@@ -38,49 +38,47 @@ import Highlight.Util
 -------------------------
 
 newtype HighlightM a = HighlightM
-  { unHighlightM :: ReaderT Options (ExceptT HighlightErr IO) a
-  } deriving (Functor, Applicative, Monad)
+  { unHighlightM :: ReaderT Options (StateT Int (ExceptT HighlightErr IO)) a
+  } deriving ( Functor
+             , Applicative
+             , Monad
+             , MonadError HighlightErr
+             , MonadIO
+             , MonadReader Options
+             , MonadState Int
+             )
 
 runHighlightM :: Options -> HighlightM a -> IO (Either HighlightErr a)
-runHighlightM opts = runExceptT . flip runReaderT opts . unHighlightM
-
--- | Only used internally.
-newtype HighlightMWithIO a = HighlightMWithIO
-  { unHighlightMWithIO :: HighlightM a
-  } deriving (Functor, Applicative, Monad)
-
-instance MonadIO HighlightMWithIO where
-  liftIO :: IO a -> HighlightMWithIO a
-  liftIO = HighlightMWithIO . HighlightM . liftIO
+runHighlightM opts = runExceptT . flip evalStateT 0 . flip runReaderT opts . unHighlightM
 
 ----------------------------------
 -- Get value of certain options --
 ----------------------------------
 
 getOptions :: HighlightM Options
-getOptions = HighlightM ask
+getOptions = ask
 
 getIgnoreCase :: HighlightM IgnoreCase
-getIgnoreCase  = optionsIgnoreCase <$> getOptions
+getIgnoreCase  = reader optionsIgnoreCase
 
 getRecursive :: HighlightM Recursive
-getRecursive = optionsRecursive <$> getOptions
+getRecursive = reader optionsRecursive
 
 getColorGrepFilenames :: HighlightM ColorGrepFilenames
-getColorGrepFilenames = optionsColorGrepFilenames <$> getOptions
+getColorGrepFilenames = reader optionsColorGrepFilenames
 
 getRawRegex :: HighlightM RawRegex
-getRawRegex = optionsRawRegex <$> getOptions
+getRawRegex = reader optionsRawRegex
 
 getInputFilenames :: HighlightM [InputFilename]
-getInputFilenames = optionsInputFilenames <$> getOptions
+getInputFilenames = reader optionsInputFilenames
 
 ------------------
 -- Throw Errors --
 ------------------
 
 throwHighlightErr :: HighlightErr -> HighlightM a
-throwHighlightErr = HighlightM . throwError
+throwHighlightErr = throwError
 
 throwRegexCompileErr :: RawRegex -> HighlightM a
 throwRegexCompileErr = throwHighlightErr . HighlightRegexCompileErr
@@ -107,7 +105,7 @@ getFilePathFromWhereDid :: WhereDidFileComeFrom -> FilePath
 getFilePathFromWhereDid (FileSpecifiedByUser fp) = fp
 getFilePathFromWhereDid (FileFoundRecursively fp) = fp
 
-createInputData :: HighlightM (InputData HighlightMWithIO ())
+createInputData :: HighlightM (InputData HighlightM ())
 createInputData = do
   inputFilenames <-
     fmap (FileSpecifiedByUser . unInputFilename) <$> getInputFilenames
@@ -119,13 +117,11 @@ createInputData = do
       pure . InputDataStdin filenameHandling $ fromHandleLines stdin
     (file1:files) -> do
       lalas <-
-        unHighlightMWithIO $
-          traverse
-            (producerForSingleFilePossiblyRecursive recursive)
-            (file1 :| files)
+        traverse
+          (producerForSingleFilePossiblyRecursive recursive)
+          (file1 :| files)
       let lala = foldl1 combineApplicatives lalas
-      filenameHandling <-
-        unHighlightMWithIO $ computeFilenameHandlingFromFiles lala
+      filenameHandling <- computeFilenameHandlingFromFiles lala
       pure $ InputDataFile filenameHandling lala
 
 -- | TODO: This is a complicated function.
@@ -133,7 +129,7 @@ producerForSingleFilePossiblyRecursive
   :: MonadIO m
   => Recursive
   -> WhereDidFileComeFrom
-  -> HighlightMWithIO (Lala m ())
+  -> HighlightM (Lala m ())
 producerForSingleFilePossiblyRecursive recursive whereDid = do
   let filePath = getFilePathFromWhereDid whereDid
   eitherHandle <- openFilePathForReading filePath
@@ -146,8 +142,8 @@ producerForSingleFilePossiblyRecursive recursive whereDid = do
         then do
           let listT = childOf $ decodeString filePath
               producer =
-                enumerate listT :: Producer Path.FilePath (SafeT IO) ()
-              lIO = runSafeT $ toListM producer :: IO [Path.FilePath]
+                enumerate listT
+              lIO = runSafeT $ toListM producer
           eitherFileList <- liftIO (try lIO)
           case eitherFileList of
             Left dirIOErr ->
@@ -189,7 +185,7 @@ handleInputData
         -> ByteString
         -> NonEmpty ByteString
      )
-  -> InputData HighlightMWithIO ()
+  -> InputData HighlightM ()
   -> HighlightM ()
 handleInputData f _ (InputDataStdin filenameHandling producer) =
   handleInputDataStdin f filenameHandling producer
@@ -199,11 +195,11 @@ handleInputData _ f (InputDataFile filenameHandling lala) = do
 handleInputDataStdin
   :: (FilenameHandlingFromStdin -> ByteString -> ByteString)
   -> FilenameHandlingFromStdin
-  -> Producer ByteString HighlightMWithIO ()
+  -> Producer ByteString HighlightM ()
   -> HighlightM ()
 handleInputDataStdin f filenameHandling producer = do
-  unHighlightMWithIO . liftIO $ print filenameHandling
-  unHighlightMWithIO . runEffect $
+  liftIO $ print filenameHandling
+  runEffect $
     producer >-> addNewline (f filenameHandling) >-> Pipes.ByteString.stdout
   where
     addNewline
@@ -226,20 +222,20 @@ handleInputDataFile
         -> NonEmpty ByteString
      )
   -> FilenameHandlingFromFiles
-  -> Lala HighlightMWithIO ()
+  -> Lala HighlightM ()
   -> HighlightM ()
 handleInputDataFile f filenameHandling lala = do
-  unHighlightMWithIO . liftIO $ print filenameHandling
-  unHighlightMWithIO . runEffect $ for (numberedProducer lala) g
+  liftIO $ print filenameHandling
+  runEffect $ for (numberedProducer lala) g
   where
     g
       :: ( Int
          , WhereDidFileComeFrom
          , Either
             (IOException, Maybe IOException)
-            (Producer ByteString HighlightMWithIO ())
+            (Producer ByteString HighlightM ())
          )
-      -> Effect HighlightMWithIO ()
+      -> Effect HighlightM ()
     g (_, _whereDid, Left (_ioerr, _maybeioerr)) = undefined
     g (fileNumber, whereDid, Right producer) = do
       let filePath = getFilePathFromWhereDid whereDid
@@ -247,7 +243,7 @@ handleInputDataFile f filenameHandling lala = do
       byteStringFilePath <- liftIO $ convertStringToRawByteString filePath
       producer >-> bababa byteStringFilePath >-> Pipes.ByteString.stdout
       where
-        bababa :: ByteString -> Pipe ByteString ByteString HighlightMWithIO ()
+        bababa :: ByteString -> Pipe ByteString ByteString HighlightM ()
         bababa filePath = do
           inputLine <- await
           let outputLines = f filenameHandling filePath fileNumber inputLine
