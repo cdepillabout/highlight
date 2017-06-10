@@ -186,7 +186,12 @@ data InputData m a
 
 handleInputData
   :: (FilenameHandlingFromStdin -> ByteString -> ByteString)
-  -> (FilenameHandlingFromFiles -> ByteString -> ByteString -> NonEmpty ByteString)
+  -> ( FilenameHandlingFromFiles
+        -> ByteString
+        -> Int
+        -> ByteString
+        -> NonEmpty ByteString
+     )
   -> InputData HighlightMWithIO ()
   -> HighlightM ()
 handleInputData f _ (InputDataStdin filenameHandling producer) =
@@ -195,24 +200,29 @@ handleInputData _ f (InputDataFile filenameHandling lala) = do
   handleInputDataFile f filenameHandling lala
 
 handleInputDataFile
-  :: (FilenameHandlingFromFiles -> ByteString -> ByteString -> NonEmpty ByteString)
+  :: ( FilenameHandlingFromFiles
+        -> ByteString
+        -> Int
+        -> ByteString
+        -> NonEmpty ByteString
+     )
   -> FilenameHandlingFromFiles
   -> Lala HighlightMWithIO ()
   -> HighlightM ()
 handleInputDataFile f filenameHandling lala = do
-  -- TODO: I think I can probably use the 'for' function to loop through lala?
   unHighlightMWithIO . liftIO $ print filenameHandling
-  unHighlightMWithIO . runEffect $ for lala g
+  unHighlightMWithIO . runEffect $ for (numberedProducer lala) g
   where
     g
-      :: ( WhereDidFileComeFrom
+      :: ( Int
+         , WhereDidFileComeFrom
          , Either
             (IOException, Maybe IOException)
             (Producer ByteString HighlightMWithIO ())
          )
       -> Effect HighlightMWithIO ()
-    g (whereDid, Left (ioerr, maybeioerr)) = undefined
-    g (whereDid, Right producer) = do
+    g (fileNumber, whereDid, Left (ioerr, maybeioerr)) = undefined
+    g (fileNumber, whereDid, Right producer) = do
       let filePath = getFilePathFromWhereDid whereDid
       -- TODO: Need to free this filePath
       byteStringFilePath <- liftIO $ convertStringToRawByteString filePath
@@ -221,10 +231,14 @@ handleInputDataFile f filenameHandling lala = do
         bababa :: ByteString -> Pipe ByteString ByteString HighlightMWithIO ()
         bababa filePath = do
           inputLine <- await
-          let outputLines = f filenameHandling filePath inputLine
+          let outputLines = f filenameHandling filePath fileNumber inputLine
           each outputLines
           yield "\n"
           bababa filePath
+
+numberedProducer
+  :: forall a b m.  Monad m => Producer (a, b) m () -> Producer (Int, a, b) m ()
+numberedProducer = Pipes.zipWith (\int (a, b) -> (int, a, b)) $ each [0..]
 
 handleInputDataStdin
   :: (FilenameHandlingFromStdin -> ByteString -> ByteString)
