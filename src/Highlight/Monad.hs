@@ -19,9 +19,8 @@ import Data.Semigroup ((<>))
 import Filesystem.Path.CurrentOS (decodeString, encodeString)
 import qualified Filesystem.Path.CurrentOS as Path
 import Pipes
-       (Pipe, Producer, (>->), await, each, enumerate, for, next,
+       (Effect, Pipe, Producer, (>->), await, each, enumerate, for, next,
         runEffect, yield)
--- import Pipes.ByteString (fromHandle, stdin)
 import qualified Pipes.ByteString
 import Pipes.Group (concats)
 import Pipes.Prelude (toListM)
@@ -120,8 +119,6 @@ createInputData = do
   colorGrepFilenames <- getColorGrepFilenames
   case inputFilenames of
     [] -> do
-      -- TODO: This doesn't work when the input file has lines over 32kb.
-      -- Need to rewrite 'stdin' and 'lines'.
       let filenameHandling = computeFilenameHandlingFromStdin colorGrepFilenames
       pure . InputDataStdin filenameHandling $ fromHandleLines stdin
     (file1:files) -> do
@@ -145,8 +142,6 @@ producerForSingleFilePossiblyRecursive recursive whereDid = do
   eitherHandle <- openFilePathForReading filePath
   case eitherHandle of
     Right handle -> do
-      -- TODO: This doesn't work when the input file has lines over 32kb.
-      -- Need to rewrite 'fromHandle' and 'lines'.
       let linesProducer = fromHandleLines handle
       pure $ yield (whereDid, Right linesProducer)
     Left fileIOErr ->
@@ -194,7 +189,37 @@ handleInputData
   -> (FilenameHandlingFromFiles -> Lala HighlightMWithIO () -> ())
   -> InputData HighlightMWithIO ()
   -> HighlightM ()
-handleInputData f _ (InputDataStdin filenameHandling producer) = do
+handleInputData f _ (InputDataStdin filenameHandling producer) =
+  handleInputDataStdin f filenameHandling producer
+handleInputData _ _ (InputDataFile filenameHandling lala) = do
+  -- TODO: I think I can probably use the 'for' function to loop through lala?
+  unHighlightMWithIO . liftIO $ print filenameHandling
+  unHighlightMWithIO . runEffect $
+    for lala g
+    -- lala >-> f >-> Pipes.print
+  where
+    -- f :: Pipe (WhereDidFileComeFrom, b) String HighlightMWithIO ()
+    -- f = do
+    --   (whereDid, _) <- await
+    --   let filePath = getFilePathFromWhereDid whereDid
+    --   yield filePath
+    --   f
+    g
+      :: ( WhereDidFileComeFrom
+         , Either
+            (IOException, Maybe IOException)
+            (Producer ByteString m a)
+         )
+      -> Effect m ()
+    g (whereDid, eitherProducer) = do
+      undefined
+
+handleInputDataStdin
+  :: (FilenameHandlingFromStdin -> ByteString -> ByteString)
+  -> FilenameHandlingFromStdin
+  -> Producer ByteString HighlightMWithIO ()
+  -> HighlightM ()
+handleInputDataStdin f filenameHandling producer = do
   unHighlightMWithIO . liftIO $ print filenameHandling
   unHighlightMWithIO . runEffect $
     producer >-> pipe (f filenameHandling) >-> Pipes.ByteString.stdout
@@ -210,18 +235,6 @@ handleInputData f _ (InputDataStdin filenameHandling producer) = do
           yield $ func inputLine
           yield "\n"
           go
-handleInputData _ _ (InputDataFile filenameHandling lala) = do
-  -- TODO: I think I can probably use the 'for' function to loop through lala?
-  unHighlightMWithIO . liftIO $ print filenameHandling
-  unHighlightMWithIO . runEffect $
-    lala >-> f >-> Pipes.print
-  where
-    f :: Pipe (WhereDidFileComeFrom, b) String HighlightMWithIO ()
-    f = do
-      (whereDid, _) <- await
-      let filePath = getFilePathFromWhereDid whereDid
-      yield filePath
-      f
 
 -----------------------
 -- Filename Handling --
