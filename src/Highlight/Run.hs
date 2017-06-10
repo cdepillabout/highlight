@@ -4,7 +4,8 @@
 module Highlight.Run where
 
 import Control.Monad.State (MonadState)
-import Data.ByteString (ByteString)
+import Data.ByteString (ByteString, empty)
+import qualified Data.ByteString.Char8
 import Data.IntMap.Strict (IntMap, (!))
 import Data.List.NonEmpty (NonEmpty((:|)))
 import Data.Monoid ((<>))
@@ -23,7 +24,8 @@ import Highlight.Error (HighlightErr(..))
 import Highlight.Monad
        (FilenameHandlingFromStdin(..), FilenameHandlingFromFiles(..),
         FromGrepFilenameState, HighlightM, createInputData, getIgnoreCase,
-        getRawRegex, handleInputData, runHighlightM, throwRegexCompileErr)
+        getRawRegex, handleInputData, runHighlightM, throwRegexCompileErr,
+        updateFilename)
 import Highlight.Options
        (IgnoreCase(IgnoreCase, DoNotIgnoreCase), Options(..),
         RawRegex(RawRegex))
@@ -54,10 +56,34 @@ prog = do
 
 handleStdinInput
   :: MonadState FromGrepFilenameState m
-  => RE -> FilenameHandlingFromStdin -> ByteString -> m ByteString
-handleStdinInput _regex FromStdinParseFilenameFromGrep _input = undefined
+  => RE -> FilenameHandlingFromStdin -> ByteString -> m (NonEmpty ByteString)
 handleStdinInput regex FromStdinNoFilename input =
-  pure $ highlightMatchInRed regex input
+  pure $ formatNormalLine regex input
+handleStdinInput regex FromStdinParseFilenameFromGrep input = do
+  let (beforeColon, colonAndAfter) =
+        Data.ByteString.Char8.break (== ':') input
+  if colonAndAfter == empty
+    then pure $ formatNormalLine regex input
+    else do
+      let filePath = beforeColon
+          line = Data.ByteString.Char8.drop 2 colonAndAfter
+      fileNumber <- updateFilename filePath
+      pure $ formatLineWithFilename regex fileNumber filePath line
+
+formatLineWithFilename
+  :: RE -> Int -> ByteString -> ByteString -> NonEmpty ByteString
+formatLineWithFilename regex fileNumber filePath input =
+  colorForFileNumber fileNumber :|
+    [ filePath
+    , colorVividWhiteBold
+    ,  ": "
+    , colorReset
+    , highlightMatchInRed regex input
+    ]
+
+formatNormalLine :: RE -> ByteString -> NonEmpty ByteString
+formatNormalLine regex input =
+  highlightMatchInRed regex input :| []
 
 handleFileInput
   :: RE
@@ -67,15 +93,9 @@ handleFileInput
   -> ByteString
   -> NonEmpty ByteString
 handleFileInput regex FromFilesNoFilename _ _ input =
-  highlightMatchInRed regex input :| []
+  formatNormalLine regex input
 handleFileInput regex FromFilesPrintFilename filePath fileNumber input =
-  colorForFileNumber fileNumber :|
-    [ filePath
-    , colorVividWhiteBold
-    ,  ": "
-    , colorReset
-    , highlightMatchInRed regex input
-    ]
+  formatLineWithFilename regex fileNumber filePath input
 
 highlightMatchInRed :: RE -> ByteString -> ByteString
 highlightMatchInRed regex input =

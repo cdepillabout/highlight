@@ -211,7 +211,10 @@ data InputData m a
       (Lala m a)
 
 handleInputData
-  :: (FilenameHandlingFromStdin -> ByteString -> HighlightM ByteString)
+  :: ( FilenameHandlingFromStdin
+        -> ByteString
+        -> HighlightM (NonEmpty ByteString)
+     )
   -> ( FilenameHandlingFromFiles
         -> ByteString
         -> Int
@@ -226,7 +229,10 @@ handleInputData _ f (InputDataFile filenameHandling lala) = do
   handleInputDataFile f filenameHandling lala
 
 handleInputDataStdin
-  :: (FilenameHandlingFromStdin -> ByteString -> HighlightM ByteString)
+  :: ( FilenameHandlingFromStdin
+        -> ByteString
+        -> HighlightM (NonEmpty ByteString)
+     )
   -> FilenameHandlingFromStdin
   -> Producer ByteString HighlightM ()
   -> HighlightM ()
@@ -237,14 +243,14 @@ handleInputDataStdin f filenameHandling producer = do
   where
     addNewline
       :: forall m. Monad m
-      => (ByteString -> m ByteString) -> Pipe ByteString ByteString m ()
+      => (ByteString -> m (NonEmpty ByteString)) -> Pipe ByteString ByteString m ()
     addNewline func = go
       where
         go :: Pipe ByteString ByteString m ()
         go = do
           inputLine <- await
           modifiedLine <- lift $ func inputLine
-          yield modifiedLine
+          each modifiedLine
           yield "\n"
           go
 
