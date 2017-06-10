@@ -3,17 +3,10 @@
 module Highlight.Run where
 
 import Data.ByteString (ByteString)
-import qualified Data.ByteString as ByteString
-import Data.ByteString.Unsafe (unsafePackCStringLen)
 import Data.IntMap.Strict (IntMap, (!))
 import Data.List.NonEmpty (NonEmpty((:|)))
 import Data.Monoid ((<>))
-import Data.Text (pack)
-import Data.Text.Encoding (encodeUtf8)
-import Foreign.C (newCStringLen)
 import GHC.Exts (IsList(fromList))
-import Pipes (Producer)
-import Pipes.ByteString (lines)
 import System.Exit (ExitCode(ExitFailure), exitWith)
 import Text.RE.PCRE
        (RE, SimpleREOptions(MultilineInsensitive, MultilineSensitive),
@@ -58,7 +51,9 @@ prog = do
   pure ()
 
 handleStdinInput :: RE -> FilenameHandlingFromStdin -> ByteString -> ByteString
-handleStdinInput regex FromStdinNoFilename input = highlightMatchInRed regex input
+handleStdinInput _regex FromStdinParseFilenameFromGrep _input = undefined
+handleStdinInput regex FromStdinNoFilename input =
+  highlightMatchInRed regex input
 
 handleFileInput
   :: RE

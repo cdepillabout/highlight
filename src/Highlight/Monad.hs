@@ -249,18 +249,18 @@ handleInputDataStdin f filenameHandling producer = do
   unHighlightMWithIO . liftIO $ print filenameHandling
   unHighlightMWithIO . runEffect $
     producer >-> addNewline (f filenameHandling) >-> Pipes.ByteString.stdout
-
-addNewline
-  :: forall m. Monad m
-  => (ByteString -> ByteString) -> Pipe ByteString ByteString m ()
-addNewline func = go
   where
-    go :: Pipe ByteString ByteString m ()
-    go = do
-      inputLine <- await
-      yield $ func inputLine
-      yield "\n"
-      go
+    addNewline
+      :: forall m. Monad m
+      => (ByteString -> ByteString) -> Pipe ByteString ByteString m ()
+    addNewline func = go
+      where
+        go :: Pipe ByteString ByteString m ()
+        go = do
+          inputLine <- await
+          yield $ func inputLine
+          yield "\n"
+          go
 
 -----------------------
 -- Filename Handling --
