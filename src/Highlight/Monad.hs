@@ -186,33 +186,36 @@ data InputData m a
 
 handleInputData
   :: (FilenameHandlingFromStdin -> ByteString -> ByteString)
-  -> (FilenameHandlingFromFiles -> Lala HighlightMWithIO () -> ())
+  -> (FilenameHandlingFromFiles -> FilePath -> ByteString -> ByteString)
   -> InputData HighlightMWithIO ()
   -> HighlightM ()
 handleInputData f _ (InputDataStdin filenameHandling producer) =
   handleInputDataStdin f filenameHandling producer
-handleInputData _ _ (InputDataFile filenameHandling lala) = do
+handleInputData _ f (InputDataFile filenameHandling lala) = do
+  handleInputDataFile f filenameHandling lala
+
+handleInputDataFile
+  :: (FilenameHandlingFromFiles -> FilePath -> ByteString -> ByteString)
+  -> FilenameHandlingFromFiles
+  -> Lala HighlightMWithIO ()
+  -> HighlightM ()
+handleInputDataFile f filenameHandling lala = do
   -- TODO: I think I can probably use the 'for' function to loop through lala?
   unHighlightMWithIO . liftIO $ print filenameHandling
-  unHighlightMWithIO . runEffect $
-    for lala g
-    -- lala >-> f >-> Pipes.print
+  unHighlightMWithIO . runEffect $ for lala g
   where
-    -- f :: Pipe (WhereDidFileComeFrom, b) String HighlightMWithIO ()
-    -- f = do
-    --   (whereDid, _) <- await
-    --   let filePath = getFilePathFromWhereDid whereDid
-    --   yield filePath
-    --   f
     g
       :: ( WhereDidFileComeFrom
          , Either
             (IOException, Maybe IOException)
-            (Producer ByteString m a)
+            (Producer ByteString HighlightMWithIO ())
          )
-      -> Effect m ()
-    g (whereDid, eitherProducer) = do
-      undefined
+      -> Effect HighlightMWithIO ()
+    g (whereDid, Left (ioerr, maybeioerr)) = undefined
+    g (whereDid, Right producer) = do
+      let filePath = getFilePathFromWhereDid whereDid
+          highlighter = f filenameHandling filePath
+      producer >-> addNewline highlighter >-> Pipes.ByteString.stdout
 
 handleInputDataStdin
   :: (FilenameHandlingFromStdin -> ByteString -> ByteString)
@@ -222,19 +225,19 @@ handleInputDataStdin
 handleInputDataStdin f filenameHandling producer = do
   unHighlightMWithIO . liftIO $ print filenameHandling
   unHighlightMWithIO . runEffect $
-    producer >-> pipe (f filenameHandling) >-> Pipes.ByteString.stdout
+    producer >-> addNewline (f filenameHandling) >-> Pipes.ByteString.stdout
+
+addNewline
+  :: forall m. Monad m
+  => (ByteString -> ByteString) -> Pipe ByteString ByteString m ()
+addNewline func = go
   where
-    pipe
-      :: forall m. Monad m
-      => (ByteString -> ByteString) -> Pipe ByteString ByteString m ()
-    pipe func = go
-      where
-        go :: Pipe ByteString ByteString m ()
-        go = do
-          inputLine <- await
-          yield $ func inputLine
-          yield "\n"
-          go
+    go :: Pipe ByteString ByteString m ()
+    go = do
+      inputLine <- await
+      yield $ func inputLine
+      yield "\n"
+      go
 
 -----------------------
 -- Filename Handling --
