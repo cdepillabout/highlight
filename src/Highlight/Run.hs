@@ -18,6 +18,7 @@ import Text.RE.PCRE
         (*=~), compileRegexWith)
 import Text.RE.Replace (replaceAll)
 
+import Highlight.Color (colorReset, colorVividRedBold)
 import Highlight.Error (HighlightErr(..))
 import Highlight.Monad
        (FilenameHandlingFromStdin(..), FilenameHandlingFromFiles(..),
@@ -52,18 +53,26 @@ prog = do
   pure ()
 
 handleStdinInput :: RE -> FilenameHandlingFromStdin -> ByteString -> ByteString
-handleStdinInput regex FromStdinNoFilename input =
-  let matches = input *=~ regex
-  in replaceAll "($0)" matches
+handleStdinInput regex FromStdinNoFilename input = highlightInRed regex input
 
 handleFileInput
-  :: RE -> FilenameHandlingFromFiles -> ByteString -> ByteString -> NonEmpty ByteString
+  :: RE
+  -> FilenameHandlingFromFiles
+  -> ByteString
+  -> ByteString
+  -> NonEmpty ByteString
 handleFileInput regex FromFilesNoFilename _ input =
-  let matches = input *=~ regex
-  in replaceAll "($0)" matches :| []
+  highlightInRed regex input :| []
 handleFileInput regex FromFilesPrintFilename filePath input =
+  filePath :| [": ", highlightInRed regex input]
+
+highlightInRed :: RE -> ByteString -> ByteString
+highlightInRed regex input =
   let matches = input *=~ regex
-  in filePath :| [": ", replaceAll "($0)" matches]
+  in replaceAll replaceInRedByteString matches
+
+replaceInRedByteString :: ByteString
+replaceInRedByteString = colorVividRedBold <> "$0" <> colorReset
 
 compileHighlightRegexWithErr :: HighlightM RE
 compileHighlightRegexWithErr = do
