@@ -196,6 +196,28 @@ handleInputData f _ (InputDataStdin filenameHandling producer) =
 handleInputData _ f (InputDataFile filenameHandling lala) = do
   handleInputDataFile f filenameHandling lala
 
+handleInputDataStdin
+  :: (FilenameHandlingFromStdin -> ByteString -> ByteString)
+  -> FilenameHandlingFromStdin
+  -> Producer ByteString HighlightMWithIO ()
+  -> HighlightM ()
+handleInputDataStdin f filenameHandling producer = do
+  unHighlightMWithIO . liftIO $ print filenameHandling
+  unHighlightMWithIO . runEffect $
+    producer >-> addNewline (f filenameHandling) >-> Pipes.ByteString.stdout
+  where
+    addNewline
+      :: forall m. Monad m
+      => (ByteString -> ByteString) -> Pipe ByteString ByteString m ()
+    addNewline func = go
+      where
+        go :: Pipe ByteString ByteString m ()
+        go = do
+          inputLine <- await
+          yield $ func inputLine
+          yield "\n"
+          go
+
 handleInputDataFile
   :: ( FilenameHandlingFromFiles
         -> ByteString
@@ -236,28 +258,6 @@ handleInputDataFile f filenameHandling lala = do
 numberedProducer
   :: forall a b m.  Monad m => Producer (a, b) m () -> Producer (Int, a, b) m ()
 numberedProducer = Pipes.zipWith (\int (a, b) -> (int, a, b)) $ each [0..]
-
-handleInputDataStdin
-  :: (FilenameHandlingFromStdin -> ByteString -> ByteString)
-  -> FilenameHandlingFromStdin
-  -> Producer ByteString HighlightMWithIO ()
-  -> HighlightM ()
-handleInputDataStdin f filenameHandling producer = do
-  unHighlightMWithIO . liftIO $ print filenameHandling
-  unHighlightMWithIO . runEffect $
-    producer >-> addNewline (f filenameHandling) >-> Pipes.ByteString.stdout
-  where
-    addNewline
-      :: forall m. Monad m
-      => (ByteString -> ByteString) -> Pipe ByteString ByteString m ()
-    addNewline func = go
-      where
-        go :: Pipe ByteString ByteString m ()
-        go = do
-          inputLine <- await
-          yield $ func inputLine
-          yield "\n"
-          go
 
 -----------------------
 -- Filename Handling --
