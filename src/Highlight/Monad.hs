@@ -6,27 +6,23 @@
 
 module Highlight.Monad where
 
-import Control.Lens ((^.))
 import Control.Exception (IOException, try)
 import Control.Monad.Except (ExceptT, runExceptT, throwError)
 import Control.Monad.IO.Class (MonadIO(liftIO))
 import Control.Monad.Reader (ReaderT, ask, runReaderT)
-import Control.Monad.Trans.Free (FreeT)
 import Data.ByteString (ByteString, hGetLine)
 import Data.DirStream (childOf)
 import Data.List.NonEmpty (NonEmpty((:|)))
-import Data.Semigroup ((<>))
 import Filesystem.Path.CurrentOS (decodeString, encodeString)
 import qualified Filesystem.Path.CurrentOS as Path
 import Pipes
        (Effect, Pipe, Producer, (>->), await, each, enumerate, for, next,
         runEffect, yield)
 import qualified Pipes.ByteString
-import Pipes.Group (concats)
 import Pipes.Prelude (toListM)
 import qualified Pipes.Prelude as Pipes
 import Pipes.Safe (SafeT, runSafeT)
-import System.IO (Handle, openBinaryFile, stdin)
+import System.IO (Handle, stdin)
 
 import Highlight.Error (HighlightErr(..))
 import Highlight.Options
@@ -35,7 +31,7 @@ import Highlight.Options
         Recursive(Recursive))
 import Highlight.Util
        (combineApplicatives, convertStringToRawByteString,
-        openFilePathForReading, unsafeConvertStringToRawByteString)
+        openFilePathForReading)
 
 -------------------------
 -- The Highlight Monad --
@@ -173,7 +169,7 @@ fromHandleLines handle = go
     go = do
       eitherLine <- liftIO . try $ hGetLine handle
       case eitherLine of
-        Left (ioerr :: IOException) -> return ()
+        Left (_ :: IOException) -> return ()
         Right line -> yield line *> go
 
 data InputData m a
@@ -221,7 +217,7 @@ handleInputDataFile f filenameHandling lala = do
             (Producer ByteString HighlightMWithIO ())
          )
       -> Effect HighlightMWithIO ()
-    g (fileNumber, whereDid, Left (ioerr, maybeioerr)) = undefined
+    g (_, _whereDid, Left (_ioerr, _maybeioerr)) = undefined
     g (fileNumber, whereDid, Right producer) = do
       let filePath = getFilePathFromWhereDid whereDid
       -- TODO: Need to free this filePath
