@@ -130,9 +130,10 @@ createInputData = do
 
 -- | TODO: This is a complicated function.
 producerForSingleFilePossiblyRecursive
-  :: Recursive
+  :: MonadIO m
+  => Recursive
   -> WhereDidFileComeFrom
-  -> HighlightMWithIO (Lala HighlightMWithIO ())
+  -> HighlightMWithIO (Lala m ())
 producerForSingleFilePossiblyRecursive recursive whereDid = do
   let filePath = getFilePathFromWhereDid whereDid
   eitherHandle <- openFilePathForReading filePath
