@@ -5,6 +5,7 @@ module Highlight.Run where
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as ByteString
 import Data.ByteString.Unsafe (unsafePackCStringLen)
+import Data.List.NonEmpty (NonEmpty((:|)))
 import Data.Monoid ((<>))
 import Data.Text (pack)
 import Data.Text.Encoding (encodeUtf8)
@@ -19,7 +20,8 @@ import Text.RE.Replace (replaceAll)
 
 import Highlight.Error (HighlightErr(..))
 import Highlight.Monad
-       (FilenameHandlingFromStdin(..), HighlightM, createInputData, getIgnoreCase, getRawRegex,
+       (FilenameHandlingFromStdin(..), FilenameHandlingFromFiles(..),
+        HighlightM, createInputData, getIgnoreCase, getRawRegex,
         handleInputData, runHighlightM, throwRegexCompileErr)
 import Highlight.Options
        (IgnoreCase(IgnoreCase, DoNotIgnoreCase), Options(..),
@@ -54,16 +56,14 @@ handleStdinInput regex FromStdinNoFilename input =
   let matches = input *=~ regex
   in replaceAll "($0)" matches
 
-handleFileInput :: a
-handleFileInput = undefined
-
--- run opts = do
---   let re = unRegEx $ optionsRegEx opts
---       lala = encodeUtf8 $ pack "this is a bytestring\nthin im 日本語 bytestring"
---       matches = lala *=~ re
---       repla = replaceAll "($0)" matches
---   ByteString.putStrLn lala
---   ByteString.putStrLn repla
+handleFileInput
+  :: RE -> FilenameHandlingFromFiles -> ByteString -> ByteString -> NonEmpty ByteString
+handleFileInput regex FromFilesNoFilename _ input =
+  let matches = input *=~ regex
+  in replaceAll "($0)" matches :| []
+handleFileInput regex FromFilesPrintFilename filePath input =
+  let matches = input *=~ regex
+  in filePath :| [": ", replaceAll "($0)" matches]
 
 compileHighlightRegexWithErr :: HighlightM RE
 compileHighlightRegexWithErr = do

@@ -34,8 +34,8 @@ import Highlight.Options
         IgnoreCase, InputFilename(unInputFilename), Options(..), RawRegex,
         Recursive(Recursive))
 import Highlight.Util
-       (combineApplicatives, openFilePathForReading,
-        unsafeConvertStringToRawByteString)
+       (combineApplicatives, convertStringToRawByteString,
+        openFilePathForReading, unsafeConvertStringToRawByteString)
 
 -------------------------
 -- The Highlight Monad --
@@ -186,7 +186,7 @@ data InputData m a
 
 handleInputData
   :: (FilenameHandlingFromStdin -> ByteString -> ByteString)
-  -> (FilenameHandlingFromFiles -> FilePath -> ByteString -> ByteString)
+  -> (FilenameHandlingFromFiles -> ByteString -> ByteString -> NonEmpty ByteString)
   -> InputData HighlightMWithIO ()
   -> HighlightM ()
 handleInputData f _ (InputDataStdin filenameHandling producer) =
@@ -195,7 +195,7 @@ handleInputData _ f (InputDataFile filenameHandling lala) = do
   handleInputDataFile f filenameHandling lala
 
 handleInputDataFile
-  :: (FilenameHandlingFromFiles -> FilePath -> ByteString -> ByteString)
+  :: (FilenameHandlingFromFiles -> ByteString -> ByteString -> NonEmpty ByteString)
   -> FilenameHandlingFromFiles
   -> Lala HighlightMWithIO ()
   -> HighlightM ()
@@ -214,8 +214,17 @@ handleInputDataFile f filenameHandling lala = do
     g (whereDid, Left (ioerr, maybeioerr)) = undefined
     g (whereDid, Right producer) = do
       let filePath = getFilePathFromWhereDid whereDid
-          highlighter = f filenameHandling filePath
-      producer >-> addNewline highlighter >-> Pipes.ByteString.stdout
+      -- TODO: Need to free this filePath
+      byteStringFilePath <- liftIO $ convertStringToRawByteString filePath
+      producer >-> bababa byteStringFilePath >-> Pipes.ByteString.stdout
+      where
+        bababa :: ByteString -> Pipe ByteString ByteString HighlightMWithIO ()
+        bababa filePath = do
+          inputLine <- await
+          let outputLines = f filenameHandling filePath inputLine
+          each outputLines
+          yield "\n"
+          bababa filePath
 
 handleInputDataStdin
   :: (FilenameHandlingFromStdin -> ByteString -> ByteString)
