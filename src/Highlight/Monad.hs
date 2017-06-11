@@ -16,6 +16,7 @@ import Control.Monad.Trans.Class (lift)
 import Data.ByteString (ByteString, hGetLine)
 import Data.DirStream (childOf)
 import Data.List.NonEmpty (NonEmpty((:|)))
+import Data.Semigroup ((<>))
 import Filesystem.Path.CurrentOS (decodeString, encodeString)
 import Pipes
        (Effect, Pipe, Producer, (>->), await, each, enumerate, for, next,
@@ -24,7 +25,8 @@ import qualified Pipes.ByteString
 import Pipes.Prelude (toListM)
 import qualified Pipes.Prelude as Pipes
 import Pipes.Safe (runSafeT)
-import System.IO (Handle, stdin)
+import System.Exit (ExitCode(ExitFailure), exitWith)
+import System.IO (Handle, hClose, hIsEOF, hIsOpen, stdin)
 
 import Highlight.Error (HighlightErr(..))
 import Highlight.Options
@@ -120,6 +122,10 @@ throwRegexCompileErr = throwHighlightErr . HighlightRegexCompileErr
 -- Pipes --
 -----------
 
+-- | TODO: This needs to be changed to just produce a list of
+-- WhereDidFileComeFroms.  The actual file opening and Producer creation needs
+-- to be done later, one file at a time, probably in the handleInputData
+-- function....
 type Lala m a =
   Producer
     ( WhereDidFileComeFrom
@@ -199,7 +205,15 @@ fromHandleLines handle = go
     go = do
       eitherLine <- liftIO . try $ hGetLine handle
       case eitherLine of
-        Left (_ :: IOException) -> return ()
+        Left ioerr -> do
+          isEOF <- liftIO $ hIsEOF handle
+          liftIO $ putStrLn $ "Is EOF? " <> show isEOF
+          if isEOF
+            then do
+              liftIO $ hClose handle
+              isOpen <- liftIO $ hIsOpen handle
+              liftIO $ putStrLn $ "Is open? " <> show isOpen
+            else liftIO $ ioError ioerr
         Right line -> yield line *> go
 
 data InputData m a
@@ -221,12 +235,13 @@ handleInputData
         -> ByteString
         -> NonEmpty ByteString
      )
+  -> (ByteString -> IOException -> Maybe IOException -> NonEmpty ByteString)
   -> InputData HighlightM ()
   -> HighlightM ()
-handleInputData f _ (InputDataStdin filenameHandling producer) =
-  handleInputDataStdin f filenameHandling producer
-handleInputData _ f (InputDataFile filenameHandling lala) = do
-  handleInputDataFile f filenameHandling lala
+handleInputData stdinFunc _ _ (InputDataStdin filenameHandling producer) =
+  handleInputDataStdin stdinFunc filenameHandling producer
+handleInputData _ handleNonError handleError (InputDataFile filenameHandling lala) = do
+  handleInputDataFile handleNonError handleError filenameHandling lala
 
 handleInputDataStdin
   :: ( FilenameHandlingFromStdin
@@ -237,13 +252,13 @@ handleInputDataStdin
   -> Producer ByteString HighlightM ()
   -> HighlightM ()
 handleInputDataStdin f filenameHandling producer = do
-  liftIO $ print filenameHandling
   runEffect $
     producer >-> addNewline (f filenameHandling) >-> Pipes.ByteString.stdout
   where
     addNewline
       :: forall m. Monad m
-      => (ByteString -> m (NonEmpty ByteString)) -> Pipe ByteString ByteString m ()
+      => (ByteString -> m (NonEmpty ByteString))
+      -> Pipe ByteString ByteString m ()
     addNewline func = go
       where
         go :: Pipe ByteString ByteString m ()
@@ -261,11 +276,11 @@ handleInputDataFile
         -> ByteString
         -> NonEmpty ByteString
      )
+  -> (ByteString -> IOException -> Maybe IOException -> NonEmpty ByteString)
   -> FilenameHandlingFromFiles
   -> Lala HighlightM ()
   -> HighlightM ()
-handleInputDataFile f filenameHandling lala = do
-  liftIO $ print filenameHandling
+handleInputDataFile handleNonError handleError filenameHandling lala = do
   runEffect $ for (numberedProducer lala) g
   where
     g
@@ -276,7 +291,15 @@ handleInputDataFile f filenameHandling lala = do
             (Producer ByteString HighlightM ())
          )
       -> Effect HighlightM ()
-    g (_, _whereDid, Left (_ioerr, _maybeioerr)) = undefined
+    g (_, whereDid, Left (ioerr, maybeioerr)) = do
+      let filePath = getFilePathFromWhereDid whereDid
+      byteStringFilePath <- liftIO $ convertStringToRawByteString filePath
+      -- let outputLine = handleError byteStringFilePath ioerr maybeioerr
+      -- yield outputLine >-> Pipes.ByteString.stdout
+      liftIO $ print filePath
+      liftIO $ print ioerr
+      liftIO $ print maybeioerr
+      -- liftIO $ exitWith $ ExitFailure 1
     g (fileNumber, whereDid, Right producer) = do
       let filePath = getFilePathFromWhereDid whereDid
       -- TODO: Need to free this filePath
@@ -286,7 +309,8 @@ handleInputDataFile f filenameHandling lala = do
         bababa :: ByteString -> Pipe ByteString ByteString HighlightM ()
         bababa filePath = do
           inputLine <- await
-          let outputLines = f filenameHandling filePath fileNumber inputLine
+          let outputLines =
+                handleNonError filenameHandling filePath fileNumber inputLine
           each outputLines
           yield "\n"
           bababa filePath

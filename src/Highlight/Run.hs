@@ -3,6 +3,7 @@
 
 module Highlight.Run where
 
+import Control.Exception (IOException)
 import Control.Monad.State (MonadState)
 import Data.ByteString (ByteString, empty)
 import qualified Data.ByteString.Char8
@@ -51,6 +52,7 @@ prog = do
   handleInputData
     (handleStdinInput regex)
     (handleFileInput regex)
+    handleError
     inputData
   pure ()
 
@@ -96,6 +98,13 @@ handleFileInput regex FromFilesNoFilename _ _ input =
   formatNormalLine regex input
 handleFileInput regex FromFilesPrintFilename filePath fileNumber input =
   formatLineWithFilename regex fileNumber filePath input
+
+handleError
+  :: ByteString
+  -> IOException
+  -> Maybe IOException
+  -> NonEmpty ByteString
+handleError = undefined
 
 highlightMatchInRed :: RE -> ByteString -> ByteString
 highlightMatchInRed regex input =
