@@ -3,7 +3,7 @@ module Highlight.Util where
 import Control.Exception (IOException, try)
 import Control.Monad.IO.Class (MonadIO(liftIO))
 import Data.ByteString (ByteString)
-import Data.ByteString.Unsafe (unsafePackCStringLen)
+import Data.ByteString.Unsafe (unsafePackMallocCStringLen)
 import Data.Semigroup (Semigroup, (<>))
 import Foreign.C (newCStringLen)
 import System.IO (Handle, IOMode(ReadMode), openBinaryFile)
@@ -15,7 +15,7 @@ convertStringToRawByteString str = do
   -- TODO: cStringLen should really be freed after we are finished using the
   -- resulting bytestring.
   cStringLen <- newCStringLen str
-  unsafePackCStringLen cStringLen
+  unsafePackMallocCStringLen cStringLen
 
 unsafeConvertStringToRawByteString :: String -> ByteString
 unsafeConvertStringToRawByteString =
