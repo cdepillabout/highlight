@@ -68,9 +68,9 @@ handleStdinInput regex FromStdinParseFilenameFromGrep input = do
     then pure $ formatNormalLine regex input
     else do
       let filePath = beforeColon
-          line = Data.ByteString.Char8.drop 2 colonAndAfter
+          lineWithoutColon = Data.ByteString.Char8.drop 1 colonAndAfter
       fileNumber <- updateFilename filePath
-      pure $ formatLineWithFilename regex fileNumber filePath line
+      pure $ formatLineWithFilename regex fileNumber filePath lineWithoutColon
 
 formatLineWithFilename
   :: RE -> Int -> ByteString -> ByteString -> NonEmpty ByteString
