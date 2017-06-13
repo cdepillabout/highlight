@@ -15,8 +15,8 @@ import Control.Monad.State (MonadState, StateT, evalStateT, get, put)
 import Control.Monad.Trans.Class (lift)
 import Data.ByteString (ByteString, hGetLine)
 import Data.DirStream (childOf)
+import Data.List (sort)
 import Data.List.NonEmpty (NonEmpty((:|)))
-import Data.Semigroup ((<>))
 import Filesystem.Path.CurrentOS (decodeString, encodeString)
 import Pipes
        (Effect, Pipe, Producer, (>->), await, each, enumerate, for, next,
@@ -26,7 +26,7 @@ import Pipes.Prelude (toListM)
 import qualified Pipes.Prelude as Pipes
 import Pipes.Safe (runSafeT)
 import System.Exit (ExitCode(ExitFailure), exitWith)
-import System.IO (Handle, hClose, hIsEOF, hIsOpen, stdin)
+import System.IO (Handle, hClose, hIsEOF, stdin)
 
 import Highlight.Error (HighlightErr(..))
 import Highlight.Options
@@ -155,48 +155,53 @@ createInputData = do
       let filenameHandling = computeFilenameHandlingFromStdin colorGrepFilenames
       pure . InputDataStdin filenameHandling $ fromHandleLines stdin
     (file1:files) -> do
-      lalas <-
-        traverse
-          (producerForSingleFilePossiblyRecursive recursive)
-          (file1 :| files)
+      let lalas =
+            fmap
+              (producerForSingleFilePossiblyRecursive recursive)
+              (file1 :| files)
       let lala = foldl1 combineApplicatives lalas
       filenameHandling <- computeFilenameHandlingFromFiles lala
       pure $ InputDataFile filenameHandling lala
 
--- | TODO: This is a complicated function.
+-- | TODO: This is somewhat complicated.
 producerForSingleFilePossiblyRecursive
-  :: MonadIO m
-  => Recursive
-  -> WhereDidFileComeFrom
-  -> HighlightM (Lala m ())
-producerForSingleFilePossiblyRecursive recursive whereDid = do
-  let filePath = getFilePathFromWhereDid whereDid
-  eitherHandle <- openFilePathForReading filePath
-  case eitherHandle of
-    Right handle -> do
-      let linesProducer = fromHandleLines handle
-      pure $ yield (whereDid, Right linesProducer)
-    Left fileIOErr ->
-      if recursive == Recursive
-        then do
-          let listT = childOf $ decodeString filePath
-              producer =
-                enumerate listT
-              lIO = runSafeT $ toListM producer
-          eitherFileList <- liftIO (try lIO)
-          case eitherFileList of
-            Left dirIOErr ->
-              pure $ yield (whereDid, Left (fileIOErr, Just dirIOErr))
-            Right fileList -> do
-              let whereDids =
-                    fmap (FileFoundRecursively . encodeString) fileList
-              lalas <-
-                traverse
-                  (producerForSingleFilePossiblyRecursive recursive)
-                  whereDids
-              pure $ for (each lalas) id
-        else
-          pure $ yield (whereDid, Left (fileIOErr, Nothing))
+  :: forall m.
+     MonadIO m
+  => Recursive -> WhereDidFileComeFrom -> Lala m ()
+producerForSingleFilePossiblyRecursive recursive = go
+  where
+    go :: WhereDidFileComeFrom -> Lala m ()
+    go whereDid = do
+      let filePath = getFilePathFromWhereDid whereDid
+      eitherHandle <- openFilePathForReading filePath
+      case eitherHandle of
+        Right handle -> do
+          let linesProducer = fromHandleLines handle
+          yield (whereDid, Right linesProducer)
+        Left fileIOErr ->
+          if recursive == Recursive
+            then do
+              let listT = childOf $ decodeString filePath
+                  producer =
+                    enumerate listT
+                  lIO = runSafeT $ toListM producer
+              eitherFileList <- liftIO (try lIO)
+              case eitherFileList of
+                Left dirIOErr ->
+                  yield (whereDid, Left (fileIOErr, Just dirIOErr))
+                Right fileList -> do
+                  let sortedFileList = sort fileList
+                  let whereDids =
+                        fmap
+                          (FileFoundRecursively . encodeString)
+                          sortedFileList
+                  let lalas =
+                        fmap
+                          (producerForSingleFilePossiblyRecursive recursive)
+                          whereDids
+                  for (each lalas) id
+            else
+              yield (whereDid, Left (fileIOErr, Nothing))
 
 fromHandleLines :: forall m. MonadIO m => Handle -> Producer ByteString m ()
 fromHandleLines handle = go
@@ -205,16 +210,15 @@ fromHandleLines handle = go
     go = do
       eitherLine <- liftIO . try $ hGetLine handle
       case eitherLine of
-        Left ioerr -> do
-          isEOF <- liftIO $ hIsEOF handle
-          liftIO $ putStrLn $ "Is EOF? " <> show isEOF
-          if isEOF
-            then do
-              liftIO $ hClose handle
-              isOpen <- liftIO $ hIsOpen handle
-              liftIO $ putStrLn $ "Is open? " <> show isOpen
-            else liftIO $ ioError ioerr
+        Left ioerr -> closeHandleIfEOFOrThrow handle ioerr
         Right line -> yield line *> go
+
+closeHandleIfEOFOrThrow :: MonadIO m => Handle -> IOException -> m ()
+closeHandleIfEOFOrThrow handle ioerr = liftIO $ do
+  isEOF <- hIsEOF handle
+  if isEOF
+    then hClose handle
+    else ioError ioerr
 
 data InputData m a
   = InputDataStdin
@@ -235,7 +239,11 @@ handleInputData
         -> ByteString
         -> NonEmpty ByteString
      )
-  -> (ByteString -> IOException -> Maybe IOException -> NonEmpty ByteString)
+  -> ( ByteString
+        -> IOException
+        -> Maybe IOException
+        -> NonEmpty ByteString
+     )
   -> InputData HighlightM ()
   -> HighlightM ()
 handleInputData stdinFunc _ _ (InputDataStdin filenameHandling producer) =
@@ -293,17 +301,16 @@ handleInputDataFile handleNonError handleError filenameHandling lala = do
       -> Effect HighlightM ()
     g (_, whereDid, Left (ioerr, maybeioerr)) = do
       let filePath = getFilePathFromWhereDid whereDid
-      byteStringFilePath <- liftIO $ convertStringToRawByteString filePath
+      byteStringFilePath <- convertStringToRawByteString filePath
       -- let outputLine = handleError byteStringFilePath ioerr maybeioerr
       -- yield outputLine >-> Pipes.ByteString.stdout
       liftIO $ print filePath
       liftIO $ print ioerr
       liftIO $ print maybeioerr
-      -- liftIO $ exitWith $ ExitFailure 1
+      liftIO $ exitWith $ ExitFailure 1
     g (fileNumber, whereDid, Right producer) = do
       let filePath = getFilePathFromWhereDid whereDid
-      -- TODO: Need to free this filePath
-      byteStringFilePath <- liftIO $ convertStringToRawByteString filePath
+      byteStringFilePath <- convertStringToRawByteString filePath
       producer >-> bababa byteStringFilePath >-> Pipes.ByteString.stdout
       where
         bababa :: ByteString -> Pipe ByteString ByteString HighlightM ()

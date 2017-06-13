@@ -10,8 +10,8 @@ import System.IO (Handle, IOMode(ReadMode), openBinaryFile)
 import System.IO.Unsafe (unsafePerformIO)
 
 -- | Convert a String to a ByteString with the encoding for the current locale.
-convertStringToRawByteString :: String -> IO ByteString
-convertStringToRawByteString str = do
+convertStringToRawByteString :: MonadIO m => String -> m ByteString
+convertStringToRawByteString str = liftIO $ do
   -- TODO: cStringLen should really be freed after we are finished using the
   -- resulting bytestring.
   cStringLen <- newCStringLen str
