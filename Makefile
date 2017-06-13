@@ -1,4 +1,4 @@
-.PHONY: bench benchmark build build-haddock clean dump-splices dump-th ghci haddock haddock-server lint repl test upload watch watch-tests watch-test
+.PHONY: bench benchmark build build-haddock clean dump-splices dump-th ghci haddock haddock-server install lint repl test upload watch watch-tests watch-test
 all: build
 
 bench: benchmark
@@ -23,6 +23,9 @@ dump-th:
 haddock: build-haddock
 build-haddock:
 	stack build --haddock
+
+install:
+	stack install
 
 # Watch for changes.
 watch:
