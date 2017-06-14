@@ -21,6 +21,7 @@ library
                      , Highlight.Error
                      , Highlight.Options
                      , Highlight.Monad
+                     , Highlight.Pipes
                      , Highlight.Run
                      , Highlight.Util
   build-depends:       base >= 4.8 && < 5

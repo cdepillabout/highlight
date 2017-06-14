@@ -13,7 +13,7 @@ import Control.Monad.IO.Class (MonadIO(liftIO))
 import Control.Monad.Reader (MonadReader, ReaderT, ask, reader, runReaderT)
 import Control.Monad.State (MonadState, StateT, evalStateT, get, put)
 import Control.Monad.Trans.Class (lift)
-import Data.ByteString (ByteString, hGetLine)
+import Data.ByteString (ByteString)
 import Data.DirStream (childOf)
 import Data.List (sort)
 import Data.List.NonEmpty (NonEmpty((:|)))
@@ -26,13 +26,14 @@ import Pipes.Prelude (toListM)
 import qualified Pipes.Prelude as Pipes
 import Pipes.Safe (runSafeT)
 import System.Exit (ExitCode(ExitFailure), exitWith)
-import System.IO (Handle, hClose, hIsEOF, stdin)
+import System.IO (stdin)
 
 import Highlight.Error (HighlightErr(..))
 import Highlight.Options
        (ColorGrepFilenames(ColorGrepFilenames, DoNotColorGrepFileNames),
         IgnoreCase, InputFilename(unInputFilename), Options(..), RawRegex,
         Recursive(Recursive))
+import Highlight.Pipes (fromHandleLines)
 import Highlight.Util
        (combineApplicatives, convertStringToRawByteString,
         openFilePathForReading)
@@ -203,23 +204,6 @@ producerForSingleFilePossiblyRecursive recursive = go
             else
               yield (whereDid, Left (fileIOErr, Nothing))
 
-fromHandleLines :: forall m. MonadIO m => Handle -> Producer ByteString m ()
-fromHandleLines handle = go
-  where
-    go :: Producer ByteString m ()
-    go = do
-      eitherLine <- liftIO . try $ hGetLine handle
-      case eitherLine of
-        Left ioerr -> closeHandleIfEOFOrThrow handle ioerr
-        Right line -> yield line *> go
-
-closeHandleIfEOFOrThrow :: MonadIO m => Handle -> IOException -> m ()
-closeHandleIfEOFOrThrow handle ioerr = liftIO $ do
-  isEOF <- hIsEOF handle
-  if isEOF
-    then hClose handle
-    else ioError ioerr
-
 data InputData m a
   = InputDataStdin
       FilenameHandlingFromStdin
@@ -243,7 +227,7 @@ handleInputData
         -> IOException
         -> Maybe IOException
         -> NonEmpty ByteString
-     )
+      )
   -> InputData HighlightM ()
   -> HighlightM ()
 handleInputData stdinFunc _ _ (InputDataStdin filenameHandling producer) =
