@@ -160,8 +160,8 @@ createInputData = do
               (producerForSingleFilePossiblyRecursive recursive)
               (file1 :| files)
       let lala = foldl1 combineApplicatives lalas
-      filenameHandling <- computeFilenameHandlingFromFiles lala
-      pure $ InputDataFile filenameHandling lala
+      (filenameHandling, newLala) <- computeFilenameHandlingFromFiles lala
+      pure $ InputDataFile filenameHandling newLala
 
 -- | TODO: This is somewhat complicated.
 producerForSingleFilePossiblyRecursive
@@ -324,16 +324,23 @@ computeFilenameHandlingFromFiles
   :: forall a m r.
      Monad m
   => Producer (WhereDidFileComeFrom, a) m r
-  -> m FilenameHandlingFromFiles
+  -> m (FilenameHandlingFromFiles, Producer (WhereDidFileComeFrom, a) m r)
 computeFilenameHandlingFromFiles producer = do
   eitherFirstFile <- next producer
   case eitherFirstFile of
-    Left _ -> pure FromFilesNoFilename
-    Right ((whereDid, _), producer2) ->
-      case whereDid of
+    Left ret ->
+      pure (FromFilesNoFilename, pure ret)
+    Right ((whereDid1, a1), producer2) ->
+      case whereDid1 of
         FileSpecifiedByUser _ -> do
           eitherSecondFile <- next producer2
           case eitherSecondFile of
-            Left _ -> pure FromFilesNoFilename
-            Right (_, _) -> pure FromFilesPrintFilename
-        FileFoundRecursively _ -> pure FromFilesPrintFilename
+            Left ret2 ->
+              pure (FromFilesNoFilename, yield (whereDid1, a1) *> pure ret2)
+            Right ((whereDid2, a2), producer3) ->
+              pure
+                ( FromFilesPrintFilename
+                , yield (whereDid1, a1) *> yield (whereDid2, a2) *> producer3
+                )
+        FileFoundRecursively _ ->
+          pure (FromFilesPrintFilename, yield (whereDid1, a1) *> producer2)
