@@ -104,7 +104,10 @@ handleError
   -> IOException
   -> Maybe IOException
   -> NonEmpty ByteString
-handleError = undefined
+handleError filePath _ (Just _) =
+  "Error when trying to read file or directory \"" :| [filePath , "\""]
+handleError filePath _ Nothing =
+  "Error when trying to read file \"" :| [filePath , "\""]
 
 highlightMatchInRed :: RE -> ByteString -> ByteString
 highlightMatchInRed regex input =

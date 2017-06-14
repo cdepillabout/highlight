@@ -138,6 +138,7 @@ type Lala m a =
 data WhereDidFileComeFrom
   = FileSpecifiedByUser FilePath
   | FileFoundRecursively FilePath
+  deriving (Eq, Read, Show)
 
 getFilePathFromWhereDid :: WhereDidFileComeFrom -> FilePath
 getFilePathFromWhereDid (FileSpecifiedByUser fp) = fp
@@ -285,17 +286,7 @@ handleInputDataFile handleNonError handleError filenameHandling lala = do
       let filePath = getFilePathFromWhereDid whereDid
       byteStringFilePath <- convertStringToRawByteString filePath
       let outputLines = handleError byteStringFilePath ioerr maybeioerr
-      each outputLines >-> stderrConsumer
-      -- let producer =
-      --       case maybeioerr of
-      --         Just ioerr -> do
-      --           yield "ERROR! Error with opening \""
-      --           yield byteStringFilePath
-      --           yield "\" as a file or a directory"
-      --         Nothing -> do
-      --           yield "ERROR! Error with opening \""
-      --           yield byteStringFilePath
-      --           yield "\" as a file"
+      (each outputLines *> yield "\n") >-> stderrConsumer
     g (fileNumber, whereDid, Right producer) = do
       let filePath = getFilePathFromWhereDid whereDid
       byteStringFilePath <- convertStringToRawByteString filePath
