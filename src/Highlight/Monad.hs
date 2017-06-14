@@ -23,9 +23,7 @@ import Pipes
         runEffect, yield)
 import qualified Pipes.ByteString
 import Pipes.Prelude (toListM)
-import qualified Pipes.Prelude as Pipes
 import Pipes.Safe (runSafeT)
-import System.Exit (ExitCode(ExitFailure), exitWith)
 import System.IO (stdin)
 
 import Highlight.Error (HighlightErr(..))
@@ -33,7 +31,7 @@ import Highlight.Options
        (ColorGrepFilenames(ColorGrepFilenames, DoNotColorGrepFileNames),
         IgnoreCase, InputFilename(unInputFilename), Options(..), RawRegex,
         Recursive(Recursive))
-import Highlight.Pipes (fromHandleLines)
+import Highlight.Pipes (fromHandleLines, numberedProducer, stderrConsumer)
 import Highlight.Util
        (combineApplicatives, convertStringToRawByteString,
         openFilePathForReading)
@@ -286,12 +284,18 @@ handleInputDataFile handleNonError handleError filenameHandling lala = do
     g (_, whereDid, Left (ioerr, maybeioerr)) = do
       let filePath = getFilePathFromWhereDid whereDid
       byteStringFilePath <- convertStringToRawByteString filePath
-      -- let outputLine = handleError byteStringFilePath ioerr maybeioerr
-      -- yield outputLine >-> Pipes.ByteString.stdout
-      liftIO $ print filePath
-      liftIO $ print ioerr
-      liftIO $ print maybeioerr
-      liftIO $ exitWith $ ExitFailure 1
+      let outputLines = handleError byteStringFilePath ioerr maybeioerr
+      each outputLines >-> stderrConsumer
+      -- let producer =
+      --       case maybeioerr of
+      --         Just ioerr -> do
+      --           yield "ERROR! Error with opening \""
+      --           yield byteStringFilePath
+      --           yield "\" as a file or a directory"
+      --         Nothing -> do
+      --           yield "ERROR! Error with opening \""
+      --           yield byteStringFilePath
+      --           yield "\" as a file"
     g (fileNumber, whereDid, Right producer) = do
       let filePath = getFilePathFromWhereDid whereDid
       byteStringFilePath <- convertStringToRawByteString filePath
@@ -305,10 +309,6 @@ handleInputDataFile handleNonError handleError filenameHandling lala = do
           each outputLines
           yield "\n"
           bababa filePath
-
-numberedProducer
-  :: forall a b m.  Monad m => Producer (a, b) m () -> Producer (Int, a, b) m ()
-numberedProducer = Pipes.zipWith (\int (a, b) -> (int, a, b)) $ each [0..]
 
 -----------------------
 -- Filename Handling --
