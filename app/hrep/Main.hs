@@ -1,7 +1,7 @@
 
 module Main where
 
-import Highlight.Highlight (defaultMain)
+import Highlight.Hrep (defaultMain)
 
 main :: IO ()
 main = defaultMain
