@@ -30,6 +30,7 @@ library
                      , containers >= 0.5
                      , filepath >= 1
                      , mtl >= 2.0
+                     , mtl-compat >= 0.2
                      , optparse-applicative >= 0.11
                      , pipes >= 4
                      , pipes-bytestring >= 2
@@ -40,7 +41,8 @@ library
                      , semigroups >= 0.15
                      , system-filepath >= 0.4
                      , text >= 1.2
-                     , transformers >= 0.3
+                     , transformers >= 0.2
+                     , transformers-compat >= 0.3
   if os(windows)
     Build-Depends:     Win32 >= 2.0
   else

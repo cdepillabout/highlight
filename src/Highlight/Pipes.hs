@@ -43,6 +43,7 @@ fromHandleLines handle = go
         Right line -> yield line *> go
 {-# INLINABLE fromHandleLines #-}
 
+-- | Number each value in a 'Producer'.
 numberedProducer
   :: forall a b m.  Monad m => Producer (a, b) m () -> Producer (Int, a, b) m ()
 numberedProducer = Pipes.zipWith (\int (a, b) -> (int, a, b)) $ each [0..]
