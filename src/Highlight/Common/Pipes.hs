@@ -2,7 +2,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Highlight.Pipes where
+module Highlight.Common.Pipes where
 
 import Prelude ()
 import Prelude.Compat
@@ -26,7 +26,7 @@ import System.Posix.Directory
        (DirStream, closeDirStream, openDirStream, readDirStream)
 #endif
 
-import Highlight.Util (closeHandleIfEOFOrThrow)
+import Highlight.Common.Util (closeHandleIfEOFOrThrow)
 
 -- | Read input from a 'Handle', split it into lines, and return each of those
 -- lines as a 'ByteString' in a 'Producer'.

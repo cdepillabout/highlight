@@ -1,10 +1,10 @@
 
-module Highlight.Error where
+module Highlight.Common.Error where
 
 import Prelude ()
 import Prelude.Compat
 
-import Highlight.Options (RawRegex)
+import Highlight.Common.Options (RawRegex)
 
 data FileErr
   = FileAlreadyInUseErr FilePath

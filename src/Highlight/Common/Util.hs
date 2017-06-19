@@ -1,4 +1,4 @@
-module Highlight.Util where
+module Highlight.Common.Util where
 
 import Prelude ()
 import Prelude.Compat

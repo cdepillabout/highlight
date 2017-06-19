@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Highlight.Color where
+module Highlight.Common.Color where
 
 import Prelude ()
 import Prelude.Compat
