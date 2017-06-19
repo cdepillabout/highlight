@@ -16,14 +16,19 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Highlight
-                     , Highlight.Color
-                     , Highlight.Error
-                     , Highlight.Options
-                     , Highlight.Monad
-                     , Highlight.Pipes
-                     , Highlight.Run
-                     , Highlight.Util
+  exposed-modules:     Highlight.Common.Color
+                     , Highlight.Common.Error
+                     , Highlight.Common.Options
+                     , Highlight.Common.Pipes
+                     , Highlight.Common.Util
+                     , Highlight.Highlight
+                     , Highlight.Highlight.Monad
+                     , Highlight.Highlight.Options
+                     , Highlight.Highlight.Run
+                     , Highlight.Hrep
+                     , Highlight.Hrep.Monad
+                     , Highlight.Hrep.Options
+                     , Highlight.Hrep.Run
   build-depends:       base >= 4.5 && < 5
                      , base-compat >= 0.8
                      , ansi-terminal >= 0.6
