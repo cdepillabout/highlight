@@ -13,7 +13,6 @@ import qualified Data.ByteString.Char8
 import Data.IntMap.Strict (IntMap, (!), fromList)
 import Data.List.NonEmpty (NonEmpty((:|)))
 import Data.Monoid ((<>))
-import System.Exit (ExitCode(ExitFailure), exitWith)
 import Text.RE.PCRE
        (RE, SimpleREOptions(MultilineInsensitive, MultilineSensitive),
         (*=~), compileRegexWith)
@@ -23,24 +22,15 @@ import Highlight.Common.Color
        (colorReset, colorVividBlueBold, colorVividCyanBold,
         colorVividGreenBold, colorVividMagentaBold, colorVividRedBold,
         colorVividWhiteBold)
-import Highlight.Common.Error (HighlightErr(..))
+import Highlight.Common.Error (HighlightErr(..), handleErr)
 import Highlight.Highlight.Monad
        (FilenameHandlingFromStdin(..), FilenameHandlingFromFiles(..),
-        FromGrepFilenameState, HighlightM, createInputData, getIgnoreCase,
-        getRawRegex, handleInputData, runHighlightM, throwRegexCompileErr,
+        FromGrepFilenameState, HighlightM, createInputData, getIgnoreCaseM,
+        getRawRegexM, handleInputData, runHighlightM, throwRegexCompileErr,
         updateFilename)
 import Highlight.Highlight.Options
        (IgnoreCase(IgnoreCase, DoNotIgnoreCase), Options(..),
         RawRegex(RawRegex))
-
-die :: Int -> String -> IO a
-die exitCode msg = do
-  putStrLn $ "ERROR: " <> msg
-  exitWith $ ExitFailure exitCode
-
-handleErr :: HighlightErr -> IO a
-handleErr (HighlightRegexCompileErr (RawRegex regex)) =
-  die 10 $ "Regex not well formed: " <> regex
 
 run :: Options -> IO ()
 run opts = do
@@ -96,9 +86,9 @@ handleFileInput
   -> Int
   -> ByteString
   -> NonEmpty ByteString
-handleFileInput regex FromFilesNoFilename _ _ input =
+handleFileInput regex NoFilename _ _ input =
   formatNormalLine regex input
-handleFileInput regex FromFilesPrintFilename filePath fileNumber input =
+handleFileInput regex PrintFilename filePath fileNumber input =
   formatLineWithFilename regex fileNumber filePath input
 
 handleError
@@ -138,8 +128,8 @@ replaceInRedByteString = colorVividRedBold <> "$0" <> colorReset
 
 compileHighlightRegexWithErr :: HighlightM RE
 compileHighlightRegexWithErr = do
-  ignoreCase <- getIgnoreCase
-  rawRegex <- getRawRegex
+  ignoreCase <- getIgnoreCaseM
+  rawRegex <- getRawRegexM
   case compileHighlightRegex ignoreCase rawRegex of
     Just re -> return re
     Nothing -> throwRegexCompileErr rawRegex

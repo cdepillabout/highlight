@@ -4,7 +4,10 @@ module Highlight.Common.Error where
 import Prelude ()
 import Prelude.Compat
 
-import Highlight.Common.Options (RawRegex)
+import Data.Monoid ((<>))
+
+import Highlight.Common.Options (RawRegex(RawRegex))
+import Highlight.Common.Util (die)
 
 data FileErr
   = FileAlreadyInUseErr FilePath
@@ -13,3 +16,8 @@ data FileErr
 
 data HighlightErr
   = HighlightRegexCompileErr RawRegex
+
+handleErr :: HighlightErr -> IO a
+handleErr (HighlightRegexCompileErr (RawRegex regex)) =
+  die 10 $ "Regex not well formed: " <> regex
+

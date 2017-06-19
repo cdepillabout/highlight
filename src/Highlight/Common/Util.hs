@@ -9,6 +9,7 @@ import Data.ByteString (ByteString)
 import Data.ByteString.Unsafe (unsafePackMallocCStringLen)
 import Data.Semigroup (Semigroup, (<>))
 import Foreign.C (newCStringLen)
+import System.Exit (ExitCode(ExitFailure), exitWith)
 import System.IO (Handle, IOMode(ReadMode), hClose, hIsEOF, openBinaryFile)
 import System.IO.Unsafe (unsafePerformIO)
 
@@ -70,3 +71,12 @@ closeHandleIfEOFOrThrow handle ioerr = liftIO $ do
     then hClose handle
     else ioError ioerr
 {-# INLINABLE closeHandleIfEOFOrThrow #-}
+
+-- | Call 'exitWith' with 'ExitFailure'
+die
+  :: Int     -- ^ exit code
+  -> String  -- ^ error message to print to console
+  -> IO a
+die exitCode msg = do
+  putStrLn $ "ERROR: " <> msg
+  exitWith $ ExitFailure exitCode

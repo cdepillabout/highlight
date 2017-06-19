@@ -5,7 +5,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Highlight.Highlight.Monad where
+module Highlight.Highlight.Monad
+  ( module Highlight.Highlight.Monad
+  , module Highlight.Common.Monad
+  ) where
 
 import Prelude ()
 import Prelude.Compat
@@ -29,11 +32,13 @@ import System.IO (stdin)
 
 import Highlight.Common.Error (HighlightErr(..))
 import Highlight.Common.Monad
-       (CommonHighlightM, FilenameHandlingFromFiles,
+       (CommonHighlightM,
+        FilenameHandlingFromFiles(NoFilename, PrintFilename),
         FileOrigin(FileFoundRecursively, FileSpecifiedByUser),
         FileProducer, computeFilenameHandlingFromFiles,
-        getFilePathFromFileOrigin, getInputFilenamesM, getRecursiveM,
-        produerForSingleFile, runCommonHighlightM)
+        getFilePathFromFileOrigin, getIgnoreCaseM, getInputFilenamesM,
+        getRawRegexM, getRecursiveM, produerForSingleFile,
+        runCommonHighlightM, throwRegexCompileErr)
 import Highlight.Common.Pipes
        (childOf, fromHandleLines, numberedProducer, stderrConsumer)
 import Highlight.Common.Util

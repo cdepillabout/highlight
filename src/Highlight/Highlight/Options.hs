@@ -20,9 +20,10 @@ import Options.Applicative (Parser, flag, help, long, short)
 import Highlight.Common.Options
        (CommonOptions, HasCommonOptions(getCommonOptions),
         HasIgnoreCase(getIgnoreCase), HasInputFilenames(getInputFilenames),
-        HasRawRegex(getRawRegex), HasRecursive(getRecursive), IgnoreCase,
-        InputFilename(unInputFilename), RawRegex, Recursive(Recursive),
-        commonOptionsParser)
+        HasRawRegex(getRawRegex), HasRecursive(getRecursive),
+        IgnoreCase(DoNotIgnoreCase, IgnoreCase),
+        InputFilename(unInputFilename), RawRegex(RawRegex),
+        Recursive(Recursive), commonOptionsParser)
 
 --------------------------
 -- Color grep filenames --

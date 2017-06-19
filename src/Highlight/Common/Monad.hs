@@ -150,8 +150,8 @@ produerForSingleFile recursive = go
 -----------------------
 
 data FilenameHandlingFromFiles
-  = FromFilesNoFilename
-  | FromFilesPrintFilename
+  = NoFilename
+  | PrintFilename
   deriving (Eq, Read, Show)
 
 computeFilenameHandlingFromFiles
@@ -163,18 +163,18 @@ computeFilenameHandlingFromFiles producer = do
   eitherFirstFile <- next producer
   case eitherFirstFile of
     Left ret ->
-      return (FromFilesNoFilename, return ret)
+      return (NoFilename, return ret)
     Right ((fileOrigin, a1), producer2) ->
       case fileOrigin of
         FileSpecifiedByUser _ -> do
           eitherSecondFile <- next producer2
           case eitherSecondFile of
             Left ret2 ->
-              return (FromFilesNoFilename, yield (fileOrigin, a1) *> return ret2)
+              return (NoFilename, yield (fileOrigin, a1) *> return ret2)
             Right ((fileOrigin, a2), producer3) ->
               return
-                ( FromFilesPrintFilename
+                ( PrintFilename
                 , yield (fileOrigin, a1) *> yield (fileOrigin, a2) *> producer3
                 )
         FileFoundRecursively _ ->
-          return (FromFilesPrintFilename, yield (fileOrigin, a1) *> producer2)
+          return (PrintFilename, yield (fileOrigin, a1) *> producer2)
