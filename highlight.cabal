@@ -18,6 +18,7 @@ library
   hs-source-dirs:      src
   exposed-modules:     Highlight.Common.Color
                      , Highlight.Common.Error
+                     , Highlight.Common.Monad
                      , Highlight.Common.Options
                      , Highlight.Common.Pipes
                      , Highlight.Common.Util
