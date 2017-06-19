@@ -29,7 +29,7 @@ library
                      , bytestring >= 0.10
                      , containers >= 0.5
                      , filepath >= 1
-                     , mtl >= 2.2
+                     , mtl >= 2.0
                      , optparse-applicative >= 0.11
                      , pipes >= 4
                      , pipes-bytestring >= 2
