@@ -24,7 +24,7 @@ library
                      , Highlight.Pipes
                      , Highlight.Run
                      , Highlight.Util
-  build-depends:       base >= 4.8 && < 5
+  build-depends:       base >= 4.5 && < 5
                      , ansi-terminal >= 0.6
                      , bytestring >= 0.10
                      , containers >= 0.5
