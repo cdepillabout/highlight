@@ -10,10 +10,9 @@ import Control.Exception (IOException)
 import Control.Monad.State (MonadState)
 import Data.ByteString (ByteString, empty)
 import qualified Data.ByteString.Char8
-import Data.IntMap.Strict (IntMap, (!))
+import Data.IntMap.Strict (IntMap, (!), fromList)
 import Data.List.NonEmpty (NonEmpty((:|)))
 import Data.Monoid ((<>))
-import GHC.Exts (IsList(fromList))
 import System.Exit (ExitCode(ExitFailure), exitWith)
 import Text.RE.PCRE
        (RE, SimpleREOptions(MultilineInsensitive, MultilineSensitive),
