@@ -37,7 +37,8 @@ import Highlight.Common.Monad
         FileOrigin(FileFoundRecursively, FileSpecifiedByUser),
         FileProducer, computeFilenameHandlingFromFiles,
         getFilePathFromFileOrigin, getIgnoreCaseM, getInputFilenamesM,
-        getRecursiveM, produerForSingleFile, runCommonHighlightM)
+        getRawRegexM, getRecursiveM, produerForSingleFile,
+        runCommonHighlightM, throwRegexCompileErr)
 import Highlight.Common.Options
        (CommonOptions, IgnoreCase, InputFilename(unInputFilename),
         RawRegex, Recursive(Recursive))
@@ -85,7 +86,7 @@ data InputData m a
       (FileProducer m a)
 
 handleInputData
-  :: (ByteString -> HighlightM (NonEmpty ByteString))
+  :: (ByteString -> NonEmpty ByteString)
   -> ( FilenameHandlingFromFiles
         -> ByteString
         -> Int
@@ -105,7 +106,7 @@ handleInputData _ handleNonError handleError (InputDataFile filenameHandling fil
   handleInputDataFile handleNonError handleError filenameHandling fileProducer
 
 handleInputDataStdin
-  :: (ByteString -> HighlightM (NonEmpty ByteString))
+  :: (ByteString -> NonEmpty ByteString)
   -> Producer ByteString HighlightM ()
   -> HighlightM ()
 handleInputDataStdin f producer = do
@@ -113,14 +114,14 @@ handleInputDataStdin f producer = do
   where
     addNewline
       :: forall m. Monad m
-      => (ByteString -> m (NonEmpty ByteString))
+      => (ByteString -> NonEmpty ByteString)
       -> Pipe ByteString ByteString m ()
     addNewline func = go
       where
         go :: Pipe ByteString ByteString m ()
         go = do
           inputLine <- await
-          modifiedLine <- lift $ func inputLine
+          let modifiedLine = func inputLine
           each modifiedLine
           yield "\n"
           go

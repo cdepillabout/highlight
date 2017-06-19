@@ -25,13 +25,12 @@ import Highlight.Common.Color
         colorVividWhiteBold)
 import Highlight.Common.Error (HighlightErr(..))
 import Highlight.Common.Options
-       (IgnoreCase(IgnoreCase, DoNotIgnoreCase), Options(..),
+       (IgnoreCase(IgnoreCase, DoNotIgnoreCase), CommonOptions(..),
         RawRegex(RawRegex))
 import Highlight.Hrep.Monad
-       (FilenameHandlingFromStdin(..), FilenameHandlingFromFiles(..),
-        FromGrepFilenameState, HighlightM, createInputData, getIgnoreCase,
-        getRawRegex, handleInputData, runHighlightM, throwRegexCompileErr,
-        updateFilename)
+       (FilenameHandlingFromFiles(..), HighlightM, createInputData,
+        getIgnoreCaseM, getRawRegexM, handleInputData, runHighlightM,
+        throwRegexCompileErr)
 
 die :: Int -> String -> IO a
 die exitCode msg = do
@@ -42,7 +41,7 @@ handleErr :: HighlightErr -> IO a
 handleErr (HighlightRegexCompileErr (RawRegex regex)) =
   die 10 $ "Regex not well formed: " <> regex
 
-run :: Options -> IO ()
+run :: CommonOptions -> IO ()
 run opts = do
   eitherRes <- runHighlightM opts prog
   either handleErr return eitherRes
@@ -59,20 +58,9 @@ prog = do
   return ()
 
 handleStdinInput
-  :: MonadState FromGrepFilenameState m
-  => RE -> FilenameHandlingFromStdin -> ByteString -> m (NonEmpty ByteString)
-handleStdinInput regex FromStdinNoFilename input =
-  return $ formatNormalLine regex input
-handleStdinInput regex FromStdinParseFilenameFromGrep input = do
-  let (beforeColon, colonAndAfter) =
-        Data.ByteString.Char8.break (== ':') input
-  if colonAndAfter == empty
-    then return $ formatNormalLine regex input
-    else do
-      let filePath = beforeColon
-          lineWithoutColon = Data.ByteString.Char8.drop 1 colonAndAfter
-      fileNumber <- updateFilename filePath
-      return $ formatLineWithFilename regex fileNumber filePath lineWithoutColon
+  :: RE -> ByteString -> NonEmpty ByteString
+handleStdinInput regex input =
+  formatNormalLine regex input
 
 formatLineWithFilename
   :: RE -> Int -> ByteString -> ByteString -> NonEmpty ByteString
@@ -96,9 +84,9 @@ handleFileInput
   -> Int
   -> ByteString
   -> NonEmpty ByteString
-handleFileInput regex FromFilesNoFilename _ _ input =
+handleFileInput regex NoFilename _ _ input =
   formatNormalLine regex input
-handleFileInput regex FromFilesPrintFilename filePath fileNumber input =
+handleFileInput regex PrintFilename filePath fileNumber input =
   formatLineWithFilename regex fileNumber filePath input
 
 handleError
@@ -138,8 +126,8 @@ replaceInRedByteString = colorVividRedBold <> "$0" <> colorReset
 
 compileHighlightRegexWithErr :: HighlightM RE
 compileHighlightRegexWithErr = do
-  ignoreCase <- getIgnoreCase
-  rawRegex <- getRawRegex
+  ignoreCase <- getIgnoreCaseM
+  rawRegex <- getRawRegexM
   case compileHighlightRegex ignoreCase rawRegex of
     Just re -> return re
     Nothing -> throwRegexCompileErr rawRegex
