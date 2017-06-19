@@ -48,13 +48,19 @@ fromHandleLines handle = go
 
 -- | Number each value in a 'Producer'.
 --
--- >>> let producer = each [("dog", 3.3), ("bird", 10.1), ("spoon", 22.4)]
--- >>> -- numberedProducer producer >-
+-- >>> import Pipes.Prelude (toList)
+-- >>> let producer = each [("dog", 3.3), ("bird", 10.1), ("cat", 25.5)]
+-- >>> toList $ numberedProducer producer
+-- [(0,"dog",3.3),(1,"bird",10.1),(2,"cat",25.5)]
 numberedProducer
   :: forall a b m.  Monad m => Producer (a, b) m () -> Producer (Int, a, b) m ()
 numberedProducer = Pipes.zipWith (\int (a, b) -> (int, a, b)) $ each [0..]
 {-# INLINABLE numberedProducer #-}
 
+-- | Output 'ByteString's to 'stderr'.
+--
+-- If an 'ePIPE' error is thrown, then just 'return' @()@.  If any other error
+-- is thrown, rethrow the error.
 stderrConsumer :: forall m. MonadIO m => Consumer' ByteString m ()
 stderrConsumer = go
   where
