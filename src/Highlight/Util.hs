@@ -14,18 +14,22 @@ convertStringToRawByteString :: MonadIO m => String -> m ByteString
 convertStringToRawByteString str = liftIO $ do
   cStringLen <- newCStringLen str
   unsafePackMallocCStringLen cStringLen
+{-# INLINABLE convertStringToRawByteString #-}
 
 unsafeConvertStringToRawByteString :: String -> ByteString
 unsafeConvertStringToRawByteString =
   unsafePerformIO . convertStringToRawByteString
+{-# INLINABLE unsafeConvertStringToRawByteString #-}
 
 openFilePathForReading :: MonadIO m => FilePath -> m (Either IOException Handle)
 openFilePathForReading filePath =
   liftIO . try $ openBinaryFile filePath ReadMode
+{-# INLINABLE openFilePathForReading #-}
 
 combineApplicatives :: (Applicative f, Semigroup a) => f a -> f a -> f a
 combineApplicatives action1 action2 =
   (<>) <$> action1 <*> action2
+{-# INLINABLE combineApplicatives #-}
 
 closeHandleIfEOFOrThrow :: MonadIO m => Handle -> IOException -> m ()
 closeHandleIfEOFOrThrow handle ioerr = liftIO $ do
@@ -33,3 +37,4 @@ closeHandleIfEOFOrThrow handle ioerr = liftIO $ do
   if isEOF
     then hClose handle
     else ioError ioerr
+{-# INLINABLE closeHandleIfEOFOrThrow #-}
