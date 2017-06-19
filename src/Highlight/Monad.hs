@@ -14,13 +14,11 @@ import Control.Monad.Reader (MonadReader, ReaderT, ask, reader, runReaderT)
 import Control.Monad.State (MonadState, StateT, evalStateT, get, put)
 import Control.Monad.Trans.Class (lift)
 import Data.ByteString (ByteString)
-import Data.DirStream (childOf)
 import Data.List (sort)
 import Data.List.NonEmpty (NonEmpty((:|)))
-import Filesystem.Path.CurrentOS (decodeString, encodeString)
 import Pipes
-       (Effect, Pipe, Producer, (>->), await, each, enumerate, for, next,
-        runEffect, yield)
+       (Effect, Pipe, Producer, (>->), await, each, for, next, runEffect,
+        yield)
 import qualified Pipes.ByteString
 import Pipes.Prelude (toListM)
 import Pipes.Safe (runSafeT)
@@ -31,7 +29,8 @@ import Highlight.Options
        (ColorGrepFilenames(ColorGrepFilenames, DoNotColorGrepFileNames),
         IgnoreCase, InputFilename(unInputFilename), Options(..), RawRegex,
         Recursive(Recursive))
-import Highlight.Pipes (fromHandleLines, numberedProducer, stderrConsumer)
+import Highlight.Pipes
+       (childOf, fromHandleLines, numberedProducer, stderrConsumer)
 import Highlight.Util
        (combineApplicatives, convertStringToRawByteString,
         openFilePathForReading)
@@ -178,20 +177,15 @@ producerForSingleFilePossiblyRecursive recursive = go
             then do
               -- TODO: It looks like childOf is not throwing an error, so I
               -- need to rewrite it so it does throw an error.
-              let listT = childOf $ decodeString filePath
-                  producer =
-                    enumerate listT
+              let producer = childOf filePath
                   lIO = runSafeT $ toListM producer
               eitherFileList <- liftIO (try lIO)
               case eitherFileList of
-                Left dirIOErr ->
+                Left dirIOErr -> do
                   yield (whereDid, Left (fileIOErr, Just dirIOErr))
                 Right fileList -> do
                   let sortedFileList = sort fileList
-                  let whereDids =
-                        fmap
-                          (FileFoundRecursively . encodeString)
-                          sortedFileList
+                  let whereDids = fmap FileFoundRecursively sortedFileList
                   let lalas =
                         fmap
                           (producerForSingleFilePossiblyRecursive recursive)
