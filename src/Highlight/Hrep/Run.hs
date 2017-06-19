@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Highlight.Run where
+module Highlight.Hrep.Run where
 
 import Prelude ()
 import Prelude.Compat
@@ -19,19 +19,19 @@ import Text.RE.PCRE
         (*=~), compileRegexWith)
 import Text.RE.Replace (replaceAll)
 
-import Highlight.Color
+import Highlight.Common.Color
        (colorReset, colorVividBlueBold, colorVividCyanBold,
         colorVividGreenBold, colorVividMagentaBold, colorVividRedBold,
         colorVividWhiteBold)
-import Highlight.Error (HighlightErr(..))
-import Highlight.Monad
+import Highlight.Common.Error (HighlightErr(..))
+import Highlight.Common.Options
+       (IgnoreCase(IgnoreCase, DoNotIgnoreCase), Options(..),
+        RawRegex(RawRegex))
+import Highlight.Hrep.Monad
        (FilenameHandlingFromStdin(..), FilenameHandlingFromFiles(..),
         FromGrepFilenameState, HighlightM, createInputData, getIgnoreCase,
         getRawRegex, handleInputData, runHighlightM, throwRegexCompileErr,
         updateFilename)
-import Highlight.Options
-       (IgnoreCase(IgnoreCase, DoNotIgnoreCase), Options(..),
-        RawRegex(RawRegex))
 
 die :: Int -> String -> IO a
 die exitCode msg = do
