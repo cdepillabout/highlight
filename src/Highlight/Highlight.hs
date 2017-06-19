@@ -1,13 +1,13 @@
 
-module Highlight where
+module Highlight.Highlight where
 
 import Data.Monoid ((<>))
 import Options.Applicative
        (InfoMod, ParserInfo, (<**>), execParser, fullDesc, header, helper,
         info, progDesc)
 
-import Highlight.Options (Options, optionsParser)
-import Highlight.Run (run)
+import Highlight.Highlight.Options (Options, optionsParser)
+import Highlight.Highlight.Run (run)
 
 defaultMain :: IO ()
 defaultMain = do
@@ -20,5 +20,5 @@ defaultMain = do
     infoMod :: InfoMod a
     infoMod =
       fullDesc <>
-      progDesc "Print a greeting for TARGET" <>
-      header "hello - a test for optparse-applicative"
+      progDesc "Highlight PATTERN in a each FILE or standard input" {- <>
+      header "highlight - a test for optparse-applicative" -}
