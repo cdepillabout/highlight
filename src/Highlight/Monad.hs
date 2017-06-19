@@ -159,7 +159,6 @@ createInputData = do
       (filenameHandling, newLala) <- computeFilenameHandlingFromFiles lala
       pure $ InputDataFile filenameHandling newLala
 
--- | TODO: This is somewhat complicated.
 producerForSingleFilePossiblyRecursive
   :: forall m.
      MonadIO m
