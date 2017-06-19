@@ -121,7 +121,7 @@ colorForFileNumber :: Int -> ByteString
 colorForFileNumber num = allColorsMap ! (num `mod` allColorsLength)
 
 allColorsMap :: IntMap ByteString
-allColorsMap = fromList $ zip [0..] allColorsList
+allColorsMap = fromList $ zip [0 :: Int ..] allColorsList
 
 allColorsLength :: Int
 allColorsLength = length allColorsList
