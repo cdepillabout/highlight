@@ -30,16 +30,36 @@ unsafeConvertStringToRawByteString =
 {-# INLINABLE unsafeConvertStringToRawByteString #-}
 
 -- | Open a 'FilePath' in 'ReadMode'.
+--
+-- On success, return a 'Right' 'Handle':
+--
+-- >>> openFilePathForReading "README.md"
+-- Right {handle: README.md}
+--
+-- On error, return a 'Left' 'IOException':
+--
+-- >>> openFilePathForReading "thisfiledoesntexist"
+-- Left thisfiledoesntexist: openBinaryFile: does not exist ...
 openFilePathForReading :: MonadIO m => FilePath -> m (Either IOException Handle)
 openFilePathForReading filePath =
   liftIO . try $ openBinaryFile filePath ReadMode
 {-# INLINABLE openFilePathForReading #-}
 
+-- | Combine values in two 'Applicative's with '<>'.
+--
+-- >>> combineApplicatives (Just "hello") (Just " world")
+-- Just "hello world"
+--
+-- >>> combineApplicatives (Just "hello") Nothing
+-- Nothing
 combineApplicatives :: (Applicative f, Semigroup a) => f a -> f a -> f a
 combineApplicatives action1 action2 =
   (<>) <$> action1 <*> action2
 {-# INLINABLE combineApplicatives #-}
 
+-- | Handle an 'IOException' that occurs when reading from a 'Handle'.  Check
+-- if the 'IOException' is an EOF exception ('hIsEOF').  If so, then just close
+-- the 'Handle'.  Otherwise, throw the 'IOException' that is passed in.
 closeHandleIfEOFOrThrow :: MonadIO m => Handle -> IOException -> m ()
 closeHandleIfEOFOrThrow handle ioerr = liftIO $ do
   isEOF <- hIsEOF handle
