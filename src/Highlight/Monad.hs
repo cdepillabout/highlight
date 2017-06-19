@@ -55,11 +55,11 @@ updateFilename nextFilename = do
   FromGrepFilenameState prevFileNum prevFilename <- get
   let justNextFilename = Just nextFilename
   if justNextFilename == prevFilename
-    then pure prevFileNum
+    then return prevFileNum
     else do
       let nextFileNum = prevFileNum + 1
       put $ FromGrepFilenameState nextFileNum justNextFilename
-      pure nextFileNum
+      return nextFileNum
 
 -------------------------
 -- The Highlight Monad --
@@ -151,7 +151,7 @@ createInputData = do
   case inputFilenames of
     [] -> do
       let filenameHandling = computeFilenameHandlingFromStdin colorGrepFilenames
-      pure . InputDataStdin filenameHandling $ fromHandleLines stdin
+      return . InputDataStdin filenameHandling $ fromHandleLines stdin
     (file1:files) -> do
       let lalas =
             fmap
@@ -159,7 +159,7 @@ createInputData = do
               (file1 :| files)
       let lala = foldl1 combineApplicatives lalas
       (filenameHandling, newLala) <- computeFilenameHandlingFromFiles lala
-      pure $ InputDataFile filenameHandling newLala
+      return $ InputDataFile filenameHandling newLala
 
 producerForSingleFilePossiblyRecursive
   :: forall m.
@@ -321,18 +321,18 @@ computeFilenameHandlingFromFiles producer = do
   eitherFirstFile <- next producer
   case eitherFirstFile of
     Left ret ->
-      pure (FromFilesNoFilename, pure ret)
+      return (FromFilesNoFilename, return ret)
     Right ((whereDid1, a1), producer2) ->
       case whereDid1 of
         FileSpecifiedByUser _ -> do
           eitherSecondFile <- next producer2
           case eitherSecondFile of
             Left ret2 ->
-              pure (FromFilesNoFilename, yield (whereDid1, a1) *> pure ret2)
+              return (FromFilesNoFilename, yield (whereDid1, a1) *> return ret2)
             Right ((whereDid2, a2), producer3) ->
-              pure
+              return
                 ( FromFilesPrintFilename
                 , yield (whereDid1, a1) *> yield (whereDid2, a2) *> producer3
                 )
         FileFoundRecursively _ ->
-          pure (FromFilesPrintFilename, yield (whereDid1, a1) *> producer2)
+          return (FromFilesPrintFilename, yield (whereDid1, a1) *> producer2)

@@ -64,7 +64,7 @@ stderrConsumer = go
       x  <- liftIO $ try (hPutStr stderr bs)
       case x of
         Left (IOError { ioe_type = ResourceVanished, ioe_errno = Just ioe })
-          | Errno ioe == ePIPE -> pure ()
+          | Errno ioe == ePIPE -> return ()
         Left  e  -> liftIO $ throwIO e
         Right () -> go
 {-# INLINABLE stderrConsumer #-}
@@ -103,7 +103,7 @@ childOf path = do
         loop = do
           file <- liftIO $ readDirStream dirp
           case file of
-            [] -> pure ()
+            [] -> return ()
             _  -> do
               when (file /= "." && file /= "..") . yield $ path </> file
               loop

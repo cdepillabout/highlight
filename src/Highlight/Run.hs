@@ -46,7 +46,7 @@ handleErr (HighlightRegexCompileErr (RawRegex regex)) =
 run :: Options -> IO ()
 run opts = do
   eitherRes <- runHighlightM opts prog
-  either handleErr pure eitherRes
+  either handleErr return eitherRes
 
 prog :: HighlightM ()
 prog = do
@@ -57,23 +57,23 @@ prog = do
     (handleFileInput regex)
     handleError
     inputData
-  pure ()
+  return ()
 
 handleStdinInput
   :: MonadState FromGrepFilenameState m
   => RE -> FilenameHandlingFromStdin -> ByteString -> m (NonEmpty ByteString)
 handleStdinInput regex FromStdinNoFilename input =
-  pure $ formatNormalLine regex input
+  return $ formatNormalLine regex input
 handleStdinInput regex FromStdinParseFilenameFromGrep input = do
   let (beforeColon, colonAndAfter) =
         Data.ByteString.Char8.break (== ':') input
   if colonAndAfter == empty
-    then pure $ formatNormalLine regex input
+    then return $ formatNormalLine regex input
     else do
       let filePath = beforeColon
           lineWithoutColon = Data.ByteString.Char8.drop 1 colonAndAfter
       fileNumber <- updateFilename filePath
-      pure $ formatLineWithFilename regex fileNumber filePath lineWithoutColon
+      return $ formatLineWithFilename regex fileNumber filePath lineWithoutColon
 
 formatLineWithFilename
   :: RE -> Int -> ByteString -> ByteString -> NonEmpty ByteString
@@ -142,7 +142,7 @@ compileHighlightRegexWithErr = do
   ignoreCase <- getIgnoreCase
   rawRegex <- getRawRegex
   case compileHighlightRegex ignoreCase rawRegex of
-    Just re -> pure re
+    Just re -> return re
     Nothing -> throwRegexCompileErr rawRegex
 
 compileHighlightRegex :: IgnoreCase -> RawRegex -> Maybe RE
