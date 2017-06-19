@@ -161,6 +161,9 @@ createInputData = do
       (filenameHandling, newLala) <- computeFilenameHandlingFromFiles lala
       return $ InputDataFile filenameHandling newLala
 
+-- | TODO: It would be nice to turn this into two functions, one that just gets
+-- a list of all files to read, and one that creates the 'Producer' that
+-- actually pulles lines out of the file.
 producerForSingleFilePossiblyRecursive
   :: forall m.
      MonadIO m
