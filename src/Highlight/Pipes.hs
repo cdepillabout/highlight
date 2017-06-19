@@ -25,10 +25,12 @@ fromHandleLines handle = go
       case eitherLine of
         Left ioerr -> closeHandleIfEOFOrThrow handle ioerr
         Right line -> yield line *> go
+{-# INLINABLE fromHandleLines #-}
 
 numberedProducer
   :: forall a b m.  Monad m => Producer (a, b) m () -> Producer (Int, a, b) m ()
 numberedProducer = Pipes.zipWith (\int (a, b) -> (int, a, b)) $ each [0..]
+{-# INLINABLE numberedProducer #-}
 
 stderrConsumer :: forall m. MonadIO m => Consumer' ByteString m ()
 stderrConsumer = go
@@ -42,3 +44,4 @@ stderrConsumer = go
           | Errno ioe == ePIPE -> pure ()
         Left  e  -> liftIO $ throwIO e
         Right () -> go
+{-# INLINABLE stderrConsumer #-}
