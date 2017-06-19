@@ -4,35 +4,31 @@ module Main (main) where
 import Prelude
 
 import Data.Monoid ((<>))
-import System.FilePath.Glob (glob)
 import Test.DocTest (doctest)
 
 main :: IO ()
-main = glob "src/**/*.hs" >>= doDocTest
-
-doDocTest :: [String] -> IO ()
-doDocTest options = doctest $ options <> ghcExtensions
+main = doctest $ ["src/"] <> ghcExtensions
 
 ghcExtensions :: [String]
 ghcExtensions =
     [
     --   "-XConstraintKinds"
     -- , "-XDataKinds"
-      "-XDeriveDataTypeable"
-    , "-XDeriveGeneric"
+    -- , "-XDeriveDataTypeable"
+    -- , "-XDeriveGeneric"
     -- , "-XEmptyDataDecls"
-    , "-XFlexibleContexts"
+    -- , "-XFlexibleContexts"
     -- , "-XFlexibleInstances"
     -- , "-XGADTs"
     -- , "-XGeneralizedNewtypeDeriving"
     -- , "-XInstanceSigs"
     -- , "-XMultiParamTypeClasses"
     -- , "-XNoImplicitPrelude"
-    , "-XOverloadedStrings"
+    -- , "-XOverloadedStrings"
     -- , "-XPolyKinds"
     -- , "-XRankNTypes"
     -- , "-XRecordWildCards"
-    , "-XScopedTypeVariables"
+    -- , "-XScopedTypeVariables"
     -- , "-XStandaloneDeriving"
     -- , "-XTupleSections"
     -- , "-XTypeFamilies"

@@ -9,18 +9,27 @@ import Foreign.C (newCStringLen)
 import System.IO (Handle, IOMode(ReadMode), hClose, hIsEOF, openBinaryFile)
 import System.IO.Unsafe (unsafePerformIO)
 
--- | Convert a String to a ByteString with the encoding for the current locale.
+-- | Convert a 'String' to a 'ByteString' with the encoding for the current
+-- locale.
+--
+-- >>> convertStringToRawByteString "hello"
+-- "hello"
 convertStringToRawByteString :: MonadIO m => String -> m ByteString
 convertStringToRawByteString str = liftIO $ do
   cStringLen <- newCStringLen str
   unsafePackMallocCStringLen cStringLen
 {-# INLINABLE convertStringToRawByteString #-}
 
+-- | Just like 'convertStringToRawByteString' but unsafe.
+--
+-- >>> unsafeConvertStringToRawByteString "bye"
+-- "bye"
 unsafeConvertStringToRawByteString :: String -> ByteString
 unsafeConvertStringToRawByteString =
   unsafePerformIO . convertStringToRawByteString
 {-# INLINABLE unsafeConvertStringToRawByteString #-}
 
+-- | Open a 'FilePath' in 'ReadMode'.
 openFilePathForReading :: MonadIO m => FilePath -> m (Either IOException Handle)
 openFilePathForReading filePath =
   liftIO . try $ openBinaryFile filePath ReadMode
