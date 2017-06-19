@@ -20,7 +20,6 @@ import qualified Pipes.Prelude as Pipes
 import Pipes.Safe (MonadSafe, bracket)
 import System.FilePath ((</>))
 import System.IO (Handle, stderr)
-
 #ifdef mingw32_HOST_OS
 #else
 import System.Posix.Directory
