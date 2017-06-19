@@ -175,8 +175,6 @@ producerForSingleFilePossiblyRecursive recursive = go
         Left fileIOErr ->
           if recursive == Recursive
             then do
-              -- TODO: It looks like childOf is not throwing an error, so I
-              -- need to rewrite it so it does throw an error.
               let producer = childOf filePath
                   lIO = runSafeT $ toListM producer
               eitherFileList <- liftIO (try lIO)
