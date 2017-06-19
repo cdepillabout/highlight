@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Highlight.Run where
+module Highlight.Highlight.Run where
 
 import Prelude ()
 import Prelude.Compat
@@ -19,17 +19,17 @@ import Text.RE.PCRE
         (*=~), compileRegexWith)
 import Text.RE.Replace (replaceAll)
 
-import Highlight.Color
+import Highlight.Common.Color
        (colorReset, colorVividBlueBold, colorVividCyanBold,
         colorVividGreenBold, colorVividMagentaBold, colorVividRedBold,
         colorVividWhiteBold)
-import Highlight.Error (HighlightErr(..))
-import Highlight.Monad
+import Highlight.Common.Error (HighlightErr(..))
+import Highlight.Highlight.Monad
        (FilenameHandlingFromStdin(..), FilenameHandlingFromFiles(..),
         FromGrepFilenameState, HighlightM, createInputData, getIgnoreCase,
         getRawRegex, handleInputData, runHighlightM, throwRegexCompileErr,
         updateFilename)
-import Highlight.Options
+import Highlight.Highlight.Options
        (IgnoreCase(IgnoreCase, DoNotIgnoreCase), Options(..),
         RawRegex(RawRegex))
 

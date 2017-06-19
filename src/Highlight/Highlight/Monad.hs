@@ -5,7 +5,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Highlight.Monad where
+module Highlight.Highlight.Monad where
 
 import Prelude ()
 import Prelude.Compat
@@ -27,16 +27,16 @@ import Pipes.Prelude (toListM)
 import Pipes.Safe (runSafeT)
 import System.IO (stdin)
 
-import Highlight.Error (HighlightErr(..))
-import Highlight.Options
+import Highlight.Common.Error (HighlightErr(..))
+import Highlight.Common.Pipes
+       (childOf, fromHandleLines, numberedProducer, stderrConsumer)
+import Highlight.Common.Util
+       (combineApplicatives, convertStringToRawByteString,
+        openFilePathForReading)
+import Highlight.Highlight.Options
        (ColorGrepFilenames(ColorGrepFilenames, DoNotColorGrepFileNames),
         IgnoreCase, InputFilename(unInputFilename), Options(..), RawRegex,
         Recursive(Recursive))
-import Highlight.Pipes
-       (childOf, fromHandleLines, numberedProducer, stderrConsumer)
-import Highlight.Util
-       (combineApplicatives, convertStringToRawByteString,
-        openFilePathForReading)
 
 data FromGrepFilenameState = FromGrepFilenameState
   { fromGrepFilenameStatePrevFileNum :: Int

@@ -1,7 +1,7 @@
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Highlight.Options where
+module Highlight.Highlight.Options where
 
 import Prelude ()
 import Prelude.Compat
