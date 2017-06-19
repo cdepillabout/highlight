@@ -1,5 +1,8 @@
 module Highlight.Util where
 
+import Prelude ()
+import Prelude.Compat
+
 import Control.Exception (IOException, try)
 import Control.Monad.IO.Class (MonadIO(liftIO))
 import Data.ByteString (ByteString)

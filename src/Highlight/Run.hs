@@ -3,6 +3,9 @@
 
 module Highlight.Run where
 
+import Prelude ()
+import Prelude.Compat
+
 import Control.Exception (IOException)
 import Control.Monad.State (MonadState)
 import Data.ByteString (ByteString, empty)

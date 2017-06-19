@@ -7,6 +7,9 @@
 
 module Highlight.Monad where
 
+import Prelude ()
+import Prelude.Compat
+
 import Control.Exception (IOException, try)
 import Control.Monad.Except (ExceptT, MonadError, runExceptT, throwError)
 import Control.Monad.IO.Class (MonadIO(liftIO))

@@ -4,6 +4,9 @@
 
 module Highlight.Pipes where
 
+import Prelude ()
+import Prelude.Compat
+
 import Control.Exception (throwIO, try)
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO(liftIO))
@@ -44,6 +47,9 @@ fromHandleLines handle = go
 {-# INLINABLE fromHandleLines #-}
 
 -- | Number each value in a 'Producer'.
+--
+-- >>> let producer = each [("dog", 3.3), ("bird", 10.1), ("spoon", 22.4)]
+-- >>> -- numberedProducer producer >-
 numberedProducer
   :: forall a b m.  Monad m => Producer (a, b) m () -> Producer (Int, a, b) m ()
 numberedProducer = Pipes.zipWith (\int (a, b) -> (int, a, b)) $ each [0..]

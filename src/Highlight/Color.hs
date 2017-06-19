@@ -2,6 +2,9 @@
 
 module Highlight.Color where
 
+import Prelude ()
+import Prelude.Compat
+
 import Data.ByteString.Char8 (ByteString, pack)
 import System.Console.ANSI
        (Color(..), ColorIntensity(..), ConsoleIntensity(..),

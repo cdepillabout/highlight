@@ -3,6 +3,9 @@
 
 module Highlight.Options where
 
+import Prelude ()
+import Prelude.Compat
+
 import Control.Applicative (many)
 import Data.Monoid ((<>))
 import Options.Applicative
