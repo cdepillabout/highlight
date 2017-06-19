@@ -37,6 +37,7 @@ library
                      , pipes-safe >= 2
                      , regex >= 1.0
                      , regex-with-pcre >= 1.0
+                     , semigroups >= 0.15
                      , system-filepath >= 0.4
                      , text >= 1.2
                      , transformers >= 0.4
