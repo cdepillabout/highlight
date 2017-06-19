@@ -121,10 +121,6 @@ throwRegexCompileErr = throwHighlightErr . HighlightRegexCompileErr
 -- Pipes --
 -----------
 
--- | TODO: This needs to be changed to just produce a list of
--- WhereDidFileComeFroms.  The actual file opening and Producer creation needs
--- to be done later, one file at a time, probably in the handleInputData
--- function....
 type Lala m a =
   Producer
     ( WhereDidFileComeFrom
