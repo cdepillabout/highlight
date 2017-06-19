@@ -6,7 +6,7 @@ import Options.Applicative
        (InfoMod, ParserInfo, (<**>), execParser, fullDesc, header, helper,
         info, progDesc)
 
-import Highlight.Hrep.Options (Options, optionsParser)
+import Highlight.Common.Options (CommonOptions, commonOptionsParser)
 import Highlight.Hrep.Run (run)
 
 defaultMain :: IO ()
@@ -14,8 +14,8 @@ defaultMain = do
   options <- execParser parserInfo
   run options
   where
-    parserInfo :: ParserInfo Options
-    parserInfo = info (optionsParser <**> helper) infoMod
+    parserInfo :: ParserInfo CommonOptions
+    parserInfo = info (commonOptionsParser <**> helper) infoMod
 
     infoMod :: InfoMod a
     infoMod =
