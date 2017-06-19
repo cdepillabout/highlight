@@ -26,6 +26,12 @@ import System.Posix.Directory
 
 import Highlight.Util (closeHandleIfEOFOrThrow)
 
+-- | Read input from a 'Handle', split it into lines, and return each of those
+-- lines as a 'ByteString' in a 'Producer'.
+--
+-- This function will close the 'Handle' if the end of the file is reached.
+-- However, if an error was thrown while reading input from the 'Handle', the
+-- 'Handle' is not closed.
 fromHandleLines :: forall m. MonadIO m => Handle -> Producer ByteString m ()
 fromHandleLines handle = go
   where

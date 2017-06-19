@@ -1,5 +1,5 @@
 name:                highlight
-version:             2.0.0.0
+version:             0.1.0.0
 synopsis:            pretty printer for data types with a 'Show' instance.
 description:         Please see <https://github.com/cdepillabout/highlight#readme README.md>.
 homepage:            https://github.com/cdepillabout/highlight
@@ -35,7 +35,7 @@ library
                      , pipes-bytestring >= 2
                      , pipes-group >= 1
                      , pipes-safe >= 2
-                     , regex >= 1.0
+                     , regex >= 0.10
                      , regex-with-pcre >= 1.0
                      , semigroups >= 0.15
                      , system-filepath >= 0.4
