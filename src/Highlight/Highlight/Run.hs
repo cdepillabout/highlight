@@ -11,7 +11,6 @@ import Control.Monad.State (MonadState)
 import Data.ByteString (ByteString, empty)
 import qualified Data.ByteString.Char8
 import Data.IntMap.Strict (IntMap, (!), fromList)
-import Data.List.NonEmpty (NonEmpty((:|)))
 import Data.Monoid ((<>))
 import Text.RE.PCRE
        (RE, SimpleREOptions(MultilineInsensitive, MultilineSensitive),
@@ -50,7 +49,7 @@ prog = do
 
 handleStdinInput
   :: MonadState FromGrepFilenameState m
-  => RE -> FilenameHandlingFromStdin -> ByteString -> m (NonEmpty ByteString)
+  => RE -> FilenameHandlingFromStdin -> ByteString -> m [ByteString]
 handleStdinInput regex FromStdinNoFilename input =
   return $ formatNormalLine regex input
 handleStdinInput regex FromStdinParseFilenameFromGrep input = do
@@ -65,19 +64,19 @@ handleStdinInput regex FromStdinParseFilenameFromGrep input = do
       return $ formatLineWithFilename regex fileNumber filePath lineWithoutColon
 
 formatLineWithFilename
-  :: RE -> Int -> ByteString -> ByteString -> NonEmpty ByteString
+  :: RE -> Int -> ByteString -> ByteString -> [ByteString]
 formatLineWithFilename regex fileNumber filePath input =
-  colorForFileNumber fileNumber :|
-    [ filePath
-    , colorVividWhiteBold
-    ,  ": "
-    , colorReset
-    , highlightMatchInRed regex input
-    ]
+  [colorForFileNumber fileNumber
+  , filePath
+  , colorVividWhiteBold
+  ,  ": "
+  , colorReset
+  , highlightMatchInRed regex input
+  ]
 
-formatNormalLine :: RE -> ByteString -> NonEmpty ByteString
+formatNormalLine :: RE -> ByteString -> [ByteString]
 formatNormalLine regex input =
-  highlightMatchInRed regex input :| []
+  [highlightMatchInRed regex input]
 
 handleFileInput
   :: RE
@@ -85,7 +84,7 @@ handleFileInput
   -> ByteString
   -> Int
   -> ByteString
-  -> NonEmpty ByteString
+  -> [ByteString]
 handleFileInput regex NoFilename _ _ input =
   formatNormalLine regex input
 handleFileInput regex PrintFilename filePath fileNumber input =
@@ -95,11 +94,11 @@ handleError
   :: ByteString
   -> IOException
   -> Maybe IOException
-  -> NonEmpty ByteString
+  -> [ByteString]
 handleError filePath _ (Just _) =
-  "Error when trying to read file or directory \"" :| [filePath , "\""]
+  ["Error when trying to read file or directory \"", filePath , "\""]
 handleError filePath _ Nothing =
-  "Error when trying to read file \"" :| [filePath , "\""]
+  ["Error when trying to read file \"", filePath , "\""]
 
 highlightMatchInRed :: RE -> ByteString -> ByteString
 highlightMatchInRed regex input =

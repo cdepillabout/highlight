@@ -99,6 +99,7 @@ createInputData :: HighlightM (InputData HighlightM ())
 createInputData = do
   inputFilenames <-
     fmap (FileSpecifiedByUser . unInputFilename) <$> getInputFilenamesM
+  liftIO $ print inputFilenames
   recursive <- getRecursiveM
   colorGrepFilenames <- getColorGrepFilenamesM
   case inputFilenames of
@@ -124,21 +125,14 @@ data InputData m a
       (FileProducer m a)
 
 handleInputData
-  :: ( FilenameHandlingFromStdin
-        -> ByteString
-        -> HighlightM (NonEmpty ByteString)
-     )
+  :: (FilenameHandlingFromStdin -> ByteString -> HighlightM [ByteString])
   -> ( FilenameHandlingFromFiles
         -> ByteString
         -> Int
         -> ByteString
-        -> NonEmpty ByteString
+        -> [ByteString]
      )
-  -> ( ByteString
-        -> IOException
-        -> Maybe IOException
-        -> NonEmpty ByteString
-      )
+  -> (ByteString -> IOException -> Maybe IOException -> [ByteString])
   -> InputData HighlightM ()
   -> HighlightM ()
 handleInputData stdinFunc _ _ (InputDataStdin filenameHandling producer) =
@@ -149,7 +143,7 @@ handleInputData _ handleNonError handleError (InputDataFile filenameHandling fil
 handleInputDataStdin
   :: ( FilenameHandlingFromStdin
         -> ByteString
-        -> HighlightM (NonEmpty ByteString)
+        -> HighlightM [ByteString]
      )
   -> FilenameHandlingFromStdin
   -> Producer ByteString HighlightM ()
@@ -160,7 +154,7 @@ handleInputDataStdin f filenameHandling producer = do
   where
     addNewline
       :: forall m. Monad m
-      => (ByteString -> m (NonEmpty ByteString))
+      => (ByteString -> m [ByteString])
       -> Pipe ByteString ByteString m ()
     addNewline func = go
       where
@@ -168,18 +162,21 @@ handleInputDataStdin f filenameHandling producer = do
         go = do
           inputLine <- await
           modifiedLine <- lift $ func inputLine
-          each modifiedLine
-          yield "\n"
-          go
+          case modifiedLine of
+            [] -> go
+            (_:_) -> do
+              each modifiedLine
+              yield "\n"
+              go
 
 handleInputDataFile
   :: ( FilenameHandlingFromFiles
         -> ByteString
         -> Int
         -> ByteString
-        -> NonEmpty ByteString
+        -> [ByteString]
      )
-  -> (ByteString -> IOException -> Maybe IOException -> NonEmpty ByteString)
+  -> (ByteString -> IOException -> Maybe IOException -> [ByteString])
   -> FilenameHandlingFromFiles
   -> FileProducer HighlightM ()
   -> HighlightM ()
@@ -205,13 +202,19 @@ handleInputDataFile handleNonError handleError filenameHandling fileProducer = d
       producer >-> bababa byteStringFilePath >-> Pipes.ByteString.stdout
       where
         bababa :: ByteString -> Pipe ByteString ByteString HighlightM ()
-        bababa filePath = do
-          inputLine <- await
-          let outputLines =
-                handleNonError filenameHandling filePath fileNumber inputLine
-          each outputLines
-          yield "\n"
-          bababa filePath
+        bababa filePath = go
+          where
+            go :: Pipe ByteString ByteString HighlightM ()
+            go = do
+              inputLine <- await
+              let outputLines =
+                    handleNonError filenameHandling filePath fileNumber inputLine
+              case outputLines of
+                [] -> go
+                (_:_) -> do
+                  each outputLines
+                  yield "\n"
+                  go
 
 -----------------------
 -- Filename Handling --
