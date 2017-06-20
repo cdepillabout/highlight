@@ -12,6 +12,14 @@ category:            Text
 build-type:          Simple
 extra-source-files:  README.md
                    , img/highlight-example-screenshot.png
+                   , test/golden/golden-files/highlight/single-file.stderr
+                   , test/golden/golden-files/highlight/single-file.stdout
+                   , test/golden/test-files/dir1/file3
+                   , test/golden/test-files/dir1/file4
+                   , test/golden/test-files/dir1/subdir1/file5
+                   , test/golden/test-files/dir2/file6
+                   , test/golden/test-files/file1
+                   , test/golden/test-files/file2
 cabal-version:       >=1.10
 
 library
