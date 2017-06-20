@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes #-}
 
 module Test.Golden where
 
@@ -21,9 +22,10 @@ import Highlight.Highlight.Options
        (defaultOptions, optionsCommonOptions)
 import Highlight.Highlight.Run (progOutputProducer)
 
-
-runHighlightStdout :: IO LByteString.ByteString
-runHighlightStdout = do
+runHighlightTest
+  :: (forall m. Monad m => (Pipe Output ByteString m ()))
+  -> IO LByteString.ByteString
+runHighlightTest filterPipe = do
   let opts =
         defaultOptions
           { optionsCommonOptions =
@@ -35,7 +37,7 @@ runHighlightStdout = do
           }
   eitherByteStrings <- runHighlightM opts $ do
     outputProducer <- progOutputProducer
-    toListM $ outputProducer >-> filterStdout
+    toListM $ outputProducer >-> filterPipe
   case eitherByteStrings of
     Left err -> error $ "unexpected error: " <> show err
     Right byteStrings -> return . fromStrict $ fold byteStrings
@@ -44,8 +46,15 @@ filterStdout :: Monad m => Pipe Output ByteString m ()
 filterStdout = mapFoldable f
   where
     f :: Output -> Maybe ByteString
-    f (OutputStdout byteString) = Just byteString
     f (OutputStderr _) = Nothing
+    f (OutputStdout byteString) = Just byteString
+
+filterStderr :: Monad m => Pipe Output ByteString m ()
+filterStderr = mapFoldable f
+  where
+    f :: Output -> Maybe ByteString
+    f (OutputStderr byteString) = Just byteString
+    f (OutputStdout _) = Nothing
 
 goldenTests :: TestTree
 goldenTests = testGroup "golden tests" [highlightGoldenTests]
@@ -54,11 +63,23 @@ goldenTests = testGroup "golden tests" [highlightGoldenTests]
 -- checkFrontEndApiType = Refl
 
 highlightGoldenTests :: TestTree
-highlightGoldenTests = testGroup "highlight" [highlightSingleFile]
+highlightGoldenTests =
+  testGroup
+    "highlight"
+    [ highlightSingleFileStderr
+    , highlightSingleFileStdout
+    ]
 
-highlightSingleFile :: TestTree
-highlightSingleFile =
+highlightSingleFileStdout :: TestTree
+highlightSingleFileStdout =
   goldenVsString
-    "single file"
+    "single file stdout"
     "test/golden/golden-files/highlight/single-file.stdout"
-    runHighlightStdout
+    (runHighlightTest filterStdout)
+
+highlightSingleFileStderr :: TestTree
+highlightSingleFileStderr =
+  goldenVsString
+    "single file stderr"
+    "test/golden/golden-files/highlight/single-file.stderr"
+    (runHighlightTest filterStderr)
