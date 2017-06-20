@@ -9,10 +9,11 @@ import Prelude.Compat
 import Control.Exception (IOException)
 import Data.ByteString (ByteString)
 import Data.IntMap.Strict (IntMap, (!), fromList)
+import Data.Maybe (maybeToList)
 import Data.Monoid ((<>))
 import Text.RE.PCRE
        (RE, SimpleREOptions(MultilineInsensitive, MultilineSensitive),
-        (*=~), compileRegexWith)
+        (*=~), anyMatches, compileRegexWith)
 import Text.RE.Replace (replaceAll)
 
 import Highlight.Common.Color
@@ -50,8 +51,8 @@ handleStdinInput regex input =
   formatNormalLine regex input
 
 formatNormalLine :: RE -> ByteString -> [ByteString]
-formatNormalLine regex input =
-  [highlightMatchInRed regex input]
+formatNormalLine regex =
+  maybeToList . highlightMatchInRed regex
 
 handleFileInput
   :: RE
@@ -68,13 +69,16 @@ handleFileInput regex PrintFilename filePath fileNumber input =
 formatLineWithFilename
   :: RE -> Int -> ByteString -> ByteString -> [ByteString]
 formatLineWithFilename regex fileNumber filePath input =
-  [ colorForFileNumber fileNumber
-  , filePath
-  , colorVividWhiteBold
-  ,  ": "
-  , colorReset
-  , highlightMatchInRed regex input
-  ]
+  case highlightMatchInRed regex input of
+    Nothing -> []
+    Just line ->
+      [ colorForFileNumber fileNumber
+      , filePath
+      , colorVividWhiteBold
+      ,  ": "
+      , colorReset
+      , line
+      ]
 
 handleError
   :: ByteString
@@ -92,10 +96,13 @@ handleError filePath _ Nothing =
   , "\""
   ]
 
-highlightMatchInRed :: RE -> ByteString -> ByteString
+highlightMatchInRed :: RE -> ByteString -> Maybe ByteString
 highlightMatchInRed regex input =
   let matches = input *=~ regex
-  in replaceAll replaceInRedByteString matches
+      didMatch = anyMatches matches
+  in if didMatch
+       then Just $ replaceAll replaceInRedByteString matches
+       else Nothing
 
 colorForFileNumber :: Int -> ByteString
 colorForFileNumber num = allColorsMap ! (num `mod` allColorsLength)
