@@ -84,6 +84,16 @@ test-suite highlight-doctest
   default-language:    Haskell2010
   ghc-options:         -Wall -threaded -rtsopts -with-rtsopts=-N
 
+test-suite highlight-test
+  type:                exitcode-stdio-1.0
+  main-is:             Test.hs
+  other-modules:       Test.Golden
+  hs-source-dirs:      test
+  build-depends:       base
+                     , tasty
+  default-language:    Haskell2010
+  ghc-options:         -Wall -threaded -rtsopts -with-rtsopts=-N
+
 benchmark highlight-bench
   type:                exitcode-stdio-1.0
   main-is:             Bench.hs
