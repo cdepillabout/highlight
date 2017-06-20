@@ -68,7 +68,7 @@ getRecursiveM :: (HasRecursive r, MonadReader r m) => m Recursive
 getRecursiveM = reader getRecursive
 
 getRawRegexM :: (HasRawRegex r, MonadReader r m) => m RawRegex
-getRawRegexM = reader getRawRegexM
+getRawRegexM = reader getRawRegex
 
 getInputFilenamesM
   :: (HasInputFilenames r, MonadReader r m)
