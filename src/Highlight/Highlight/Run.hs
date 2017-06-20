@@ -22,7 +22,7 @@ import Highlight.Common.Color
        (colorReset, colorVividBlueBold, colorVividCyanBold,
         colorVividGreenBold, colorVividMagentaBold, colorVividRedBold,
         colorVividWhiteBold)
-import Highlight.Common.Error (HighlightErr(..), handleErr)
+import Highlight.Common.Error (handleErr)
 import Highlight.Highlight.Monad
        (FilenameHandlingFromStdin(..), FilenameHandlingFromFiles(..),
         FromGrepFilenameState, HighlightM, createInputData, getIgnoreCaseM,
