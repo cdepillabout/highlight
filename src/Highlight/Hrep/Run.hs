@@ -29,6 +29,8 @@ import Highlight.Hrep.Monad
         getIgnoreCaseM, getRawRegexM, handleInputData, runHighlightM,
         throwRegexCompileErr)
 
+-- TODO: Combine a lot of these functions with the functions in Highlight.Run.
+
 run :: CommonOptions -> IO ()
 run opts = do
   eitherRes <- runHighlightM opts prog
