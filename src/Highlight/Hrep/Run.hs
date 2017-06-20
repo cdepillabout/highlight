@@ -7,13 +7,9 @@ import Prelude ()
 import Prelude.Compat
 
 import Control.Exception (IOException)
-import Control.Monad.State (MonadState)
-import Data.ByteString (ByteString, empty)
-import qualified Data.ByteString.Char8
+import Data.ByteString (ByteString)
 import Data.IntMap.Strict (IntMap, (!), fromList)
-import Data.List.NonEmpty (NonEmpty((:|)))
 import Data.Monoid ((<>))
-import System.Exit (ExitCode(ExitFailure), exitWith)
 import Text.RE.PCRE
        (RE, SimpleREOptions(MultilineInsensitive, MultilineSensitive),
         (*=~), compileRegexWith)
@@ -23,7 +19,7 @@ import Highlight.Common.Color
        (colorReset, colorVividBlueBold, colorVividCyanBold,
         colorVividGreenBold, colorVividMagentaBold, colorVividRedBold,
         colorVividWhiteBold)
-import Highlight.Common.Error (HighlightErr(..))
+import Highlight.Common.Error (handleErr)
 import Highlight.Common.Options
        (IgnoreCase(IgnoreCase, DoNotIgnoreCase), CommonOptions(..),
         RawRegex(RawRegex))
@@ -31,15 +27,6 @@ import Highlight.Hrep.Monad
        (FilenameHandlingFromFiles(..), HighlightM, createInputData,
         getIgnoreCaseM, getRawRegexM, handleInputData, runHighlightM,
         throwRegexCompileErr)
-
-die :: Int -> String -> IO a
-die exitCode msg = do
-  putStrLn $ "ERROR: " <> msg
-  exitWith $ ExitFailure exitCode
-
-handleErr :: HighlightErr -> IO a
-handleErr (HighlightRegexCompileErr (RawRegex regex)) =
-  die 10 $ "Regex not well formed: " <> regex
 
 run :: CommonOptions -> IO ()
 run opts = do
@@ -58,24 +45,13 @@ prog = do
   return ()
 
 handleStdinInput
-  :: RE -> ByteString -> NonEmpty ByteString
+  :: RE -> ByteString -> [ByteString]
 handleStdinInput regex input =
   formatNormalLine regex input
 
-formatLineWithFilename
-  :: RE -> Int -> ByteString -> ByteString -> NonEmpty ByteString
-formatLineWithFilename regex fileNumber filePath input =
-  colorForFileNumber fileNumber :|
-    [ filePath
-    , colorVividWhiteBold
-    ,  ": "
-    , colorReset
-    , highlightMatchInRed regex input
-    ]
-
-formatNormalLine :: RE -> ByteString -> NonEmpty ByteString
+formatNormalLine :: RE -> ByteString -> [ByteString]
 formatNormalLine regex input =
-  highlightMatchInRed regex input :| []
+  [highlightMatchInRed regex input]
 
 handleFileInput
   :: RE
@@ -83,21 +59,38 @@ handleFileInput
   -> ByteString
   -> Int
   -> ByteString
-  -> NonEmpty ByteString
+  -> [ByteString]
 handleFileInput regex NoFilename _ _ input =
   formatNormalLine regex input
 handleFileInput regex PrintFilename filePath fileNumber input =
   formatLineWithFilename regex fileNumber filePath input
 
+formatLineWithFilename
+  :: RE -> Int -> ByteString -> ByteString -> [ByteString]
+formatLineWithFilename regex fileNumber filePath input =
+  [ colorForFileNumber fileNumber
+  , filePath
+  , colorVividWhiteBold
+  ,  ": "
+  , colorReset
+  , highlightMatchInRed regex input
+  ]
+
 handleError
   :: ByteString
   -> IOException
   -> Maybe IOException
-  -> NonEmpty ByteString
+  -> [ByteString]
 handleError filePath _ (Just _) =
-  "Error when trying to read file or directory \"" :| [filePath , "\""]
+  [ "Error when trying to read file or directory \""
+  , filePath
+  , "\""
+  ]
 handleError filePath _ Nothing =
-  "Error when trying to read file \"" :| [filePath , "\""]
+  [ "Error when trying to read file \""
+  , filePath
+  , "\""
+  ]
 
 highlightMatchInRed :: RE -> ByteString -> ByteString
 highlightMatchInRed regex input =

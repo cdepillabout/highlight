@@ -86,18 +86,14 @@ data InputData m a
       (FileProducer m a)
 
 handleInputData
-  :: (ByteString -> NonEmpty ByteString)
+  :: (ByteString -> [ByteString])
   -> ( FilenameHandlingFromFiles
         -> ByteString
         -> Int
         -> ByteString
-        -> NonEmpty ByteString
+        -> [ByteString]
      )
-  -> ( ByteString
-        -> IOException
-        -> Maybe IOException
-        -> NonEmpty ByteString
-      )
+  -> (ByteString -> IOException -> Maybe IOException -> [ByteString])
   -> InputData HighlightM ()
   -> HighlightM ()
 handleInputData stdinFunc _ _ (InputDataStdin producer) =
@@ -106,7 +102,7 @@ handleInputData _ handleNonError handleError (InputDataFile filenameHandling fil
   handleInputDataFile handleNonError handleError filenameHandling fileProducer
 
 handleInputDataStdin
-  :: (ByteString -> NonEmpty ByteString)
+  :: (ByteString -> [ByteString])
   -> Producer ByteString HighlightM ()
   -> HighlightM ()
 handleInputDataStdin f producer = do
@@ -114,7 +110,7 @@ handleInputDataStdin f producer = do
   where
     addNewline
       :: forall m. Monad m
-      => (ByteString -> NonEmpty ByteString)
+      => (ByteString -> [ByteString])
       -> Pipe ByteString ByteString m ()
     addNewline func = go
       where
@@ -122,18 +118,21 @@ handleInputDataStdin f producer = do
         go = do
           inputLine <- await
           let modifiedLine = func inputLine
-          each modifiedLine
-          yield "\n"
-          go
+          case modifiedLine of
+            [] -> go
+            (_:_) -> do
+              each modifiedLine
+              yield "\n"
+              go
 
 handleInputDataFile
   :: ( FilenameHandlingFromFiles
         -> ByteString
         -> Int
         -> ByteString
-        -> NonEmpty ByteString
+        -> [ByteString]
      )
-  -> (ByteString -> IOException -> Maybe IOException -> NonEmpty ByteString)
+  -> (ByteString -> IOException -> Maybe IOException -> [ByteString])
   -> FilenameHandlingFromFiles
   -> FileProducer HighlightM ()
   -> HighlightM ()
@@ -159,10 +158,16 @@ handleInputDataFile handleNonError handleError filenameHandling fileProducer = d
       producer >-> bababa byteStringFilePath >-> Pipes.ByteString.stdout
       where
         bababa :: ByteString -> Pipe ByteString ByteString HighlightM ()
-        bababa filePath = do
-          inputLine <- await
-          let outputLines =
-                handleNonError filenameHandling filePath fileNumber inputLine
-          each outputLines
-          yield "\n"
-          bababa filePath
+        bababa filePath = go
+          where
+            go :: Pipe ByteString ByteString HighlightM ()
+            go = do
+              inputLine <- await
+              let outputLines =
+                    handleNonError filenameHandling filePath fileNumber inputLine
+              case outputLines of
+                [] -> go
+                (_:_) -> do
+                  each outputLines
+                  yield "\n"
+                  go
