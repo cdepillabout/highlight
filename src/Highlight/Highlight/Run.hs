@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Highlight.Highlight.Run where
@@ -7,11 +8,13 @@ import Prelude ()
 import Prelude.Compat
 
 import Control.Exception (IOException)
+import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.State (MonadState)
 import Data.ByteString (ByteString, empty)
 import qualified Data.ByteString.Char8
 import Data.IntMap.Strict (IntMap, (!), fromList)
 import Data.Monoid ((<>))
+import Pipes (Producer, (>->), await, runEffect, yield)
 import Text.RE.PCRE
        (RE, SimpleREOptions(MultilineInsensitive, MultilineSensitive),
         (*=~), compileRegexWith)
@@ -22,11 +25,13 @@ import Highlight.Common.Color
         colorVividGreenBold, colorVividMagentaBold, colorVividRedBold,
         colorVividWhiteBold)
 import Highlight.Common.Error (handleErr)
+import Highlight.Common.Pipes (stderrConsumer)
 import Highlight.Highlight.Monad
        (FilenameHandlingFromStdin(..), FilenameHandlingFromFiles(..),
-        FromGrepFilenameState, HighlightM, createInputData, getIgnoreCaseM,
-        getRawRegexM, handleInputData, runHighlightM, throwRegexCompileErr,
-        updateFilename)
+        FromGrepFilenameState, HighlightM, InputData,
+        Output(OutputStderr, OutputStdout), createInputData,
+        getIgnoreCaseM, getRawRegexM, handleInputData, outputConsumer,
+        runHighlightM, throwRegexCompileErr, updateFilename)
 import Highlight.Highlight.Options
        (IgnoreCase(IgnoreCase, DoNotIgnoreCase), Options(..),
         RawRegex(RawRegex))
@@ -38,14 +43,29 @@ run opts = do
 
 prog :: HighlightM ()
 prog = do
+  outputProducer <- progOutputProducer
+  runOutputProducer outputProducer
+
+progOutputProducer :: HighlightM (Producer Output HighlightM ())
+progOutputProducer = do
   regex <- compileHighlightRegexWithErr
   inputData <- createInputData
+  return $ getOutputProducer regex inputData
+
+getOutputProducer
+  :: RE
+  -> InputData HighlightM ()
+  -> Producer Output HighlightM ()
+getOutputProducer regex inputData =
   handleInputData
     (handleStdinInput regex)
     (handleFileInput regex)
     handleError
     inputData
-  return ()
+
+runOutputProducer :: Producer Output HighlightM () -> HighlightM ()
+runOutputProducer producer =
+  runEffect $ producer >-> outputConsumer
 
 handleStdinInput
   :: MonadState FromGrepFilenameState m

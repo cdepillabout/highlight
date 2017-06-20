@@ -90,7 +90,11 @@ test-suite highlight-test
   other-modules:       Test.Golden
   hs-source-dirs:      test
   build-depends:       base
+                     , bytestring
+                     , highlight
+                     , pipes
                      , tasty
+                     , tasty-golden
   default-language:    Haskell2010
   ghc-options:         -Wall -threaded -rtsopts -with-rtsopts=-N
 

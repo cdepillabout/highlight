@@ -119,3 +119,7 @@ commonOptionsParser =
     <*> recursiveParser
     <*> rawRegexParser
     <*> inputFilenamesParser
+
+defaultCommonOptions :: CommonOptions
+defaultCommonOptions =
+  CommonOptions DoNotIgnoreCase NotRecursive (RawRegex "") []

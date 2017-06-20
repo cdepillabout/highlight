@@ -9,13 +9,9 @@ import Data.Monoid ((<>))
 import Highlight.Common.Options (RawRegex(RawRegex))
 import Highlight.Common.Util (die)
 
-data FileErr
-  = FileAlreadyInUseErr FilePath
-  | FileDoesNotExistErr FilePath
-  | FilePermissionErr FilePath
-
 data HighlightErr
   = HighlightRegexCompileErr RawRegex
+  deriving Show
 
 handleErr :: HighlightErr -> IO a
 handleErr (HighlightRegexCompileErr (RawRegex regex)) =

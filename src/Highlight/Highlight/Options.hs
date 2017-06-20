@@ -6,6 +6,7 @@ module Highlight.Highlight.Options
   , colorGrepFilenamesParser
   , HasColorGrepFilenames(..)
   , Options(..)
+  , defaultOptions
   , optionsParser
   , HasOptions(..)
   , module Highlight.Common.Options
@@ -23,7 +24,7 @@ import Highlight.Common.Options
         HasRawRegex(getRawRegex), HasRecursive(getRecursive),
         IgnoreCase(DoNotIgnoreCase, IgnoreCase),
         InputFilename(unInputFilename), RawRegex(RawRegex),
-        Recursive(Recursive), commonOptionsParser)
+        Recursive(Recursive), commonOptionsParser, defaultCommonOptions)
 
 --------------------------
 -- Color grep filenames --
@@ -88,3 +89,6 @@ optionsParser =
   Options
     <$> colorGrepFilenamesParser
     <*> commonOptionsParser
+
+defaultOptions :: Options
+defaultOptions = Options DoNotColorGrepFileNames defaultCommonOptions
