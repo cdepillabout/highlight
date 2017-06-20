@@ -22,6 +22,7 @@ import Highlight.Highlight.Options
        (defaultOptions, optionsCommonOptions)
 import Highlight.Highlight.Run (progOutputProducer)
 
+-- TODO: Make lens for options.
 runHighlightTest
   :: (forall m. Monad m => (Pipe Output ByteString m ()))
   -> IO LByteString.ByteString
