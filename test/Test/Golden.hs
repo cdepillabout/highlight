@@ -33,7 +33,8 @@ import Test.Tasty.Golden (goldenVsString)
 import Highlight.Common.Monad (Output(OutputStderr, OutputStdout))
 import Highlight.Common.Options
        (CommonOptions, IgnoreCase(IgnoreCase), Recursive(Recursive),
-        ignoreCaseLens, inputFilenamesLens, rawRegexLens, recursiveLens)
+        defaultCommonOptions, ignoreCaseLens, inputFilenamesLens,
+        rawRegexLens, recursiveLens)
 import Highlight.Common.Pipes (fromFileLines, stdinLines)
 import Highlight.Common.Util (convertStringToRawByteString)
 import Highlight.Highlight.Monad (HighlightM, runHighlightM)
@@ -115,7 +116,7 @@ testStderrAndStdout msg path runner =
 goldenTests :: TestTree
 goldenTests =
   withResource createUnreadableFile (const deleteUnreadableFile) $
-    const (testGroup "golden tests" [highlightGoldenTests])
+    const (testGroup "golden tests" [highlightGoldenTests, hrepGoldenTests])
 
 createUnreadableFile :: IO ()
 createUnreadableFile = do
@@ -142,6 +143,10 @@ deleteUnreadableFile = removePathForcibly unreadableFilePath
 
 unreadableFilePath :: FilePath
 unreadableFilePath = "test/golden/test-files/dir2/unreadable-file"
+
+---------------------
+-- Highlight Tests --
+---------------------
 
 highlightGoldenTests :: TestTree
 highlightGoldenTests =
@@ -227,3 +232,27 @@ getGrepOutputProducer = do
 -- > $ grep --recursive and 'test/golden/test-files/dir1'
 grepOutputTestFile :: FilePath
 grepOutputTestFile = "test/golden/test-files/from-grep"
+
+----------------
+-- Hrep Tests --
+----------------
+
+hrepGoldenTests :: TestTree
+hrepGoldenTests =
+  testGroup
+    "hrep"
+    [ testHrepSingleFile
+    -- , testHrepMultiFile
+    -- , testHrepFromGrep
+    ]
+
+testHrepSingleFile :: TestTree
+testHrepSingleFile =
+  let opts =
+        defaultCommonOptions
+          & rawRegexLens .~ "another"
+          & inputFilenamesLens .~ ["test/golden/test-files/file1"]
+  in testStderrAndStdout
+      "`hrep another 'test/golden/test-files/file1'`"
+      "test/golden/golden-files/hrep/single-file"
+      (runHrepTest opts)
