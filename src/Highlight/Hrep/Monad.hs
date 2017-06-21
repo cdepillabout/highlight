@@ -48,20 +48,20 @@ import Highlight.Common.Util
        (combineApplicatives, convertStringToRawByteString,
         openFilePathForReading)
 
--------------------------
--- The Highlight Monad --
--------------------------
+--------------------
+-- The Hrep Monad --
+--------------------
 
-type HighlightM = CommonHighlightM CommonOptions () HighlightErr
+type HrepM = CommonHighlightM CommonOptions () HighlightErr
 
-runHighlightM :: CommonOptions -> HighlightM a -> IO (Either HighlightErr a)
-runHighlightM opts = runCommonHighlightM opts ()
+runHrepM :: CommonOptions -> HrepM a -> IO (Either HighlightErr a)
+runHrepM opts = runCommonHighlightM opts ()
 
 -----------
 -- Pipes --
 -----------
 
-createInputData :: HighlightM (InputData HighlightM ())
+createInputData :: HrepM (InputData HrepM ())
 createInputData = do
   inputFilenames <-
     fmap (FileSpecifiedByUser . unInputFilename) <$> getInputFilenamesM
@@ -94,8 +94,8 @@ handleInputData
         -> [ByteString]
      )
   -> (ByteString -> IOException -> Maybe IOException -> [ByteString])
-  -> InputData HighlightM ()
-  -> HighlightM ()
+  -> InputData HrepM ()
+  -> HrepM ()
 handleInputData stdinFunc _ _ (InputDataStdin producer) =
   handleInputDataStdin stdinFunc producer
 handleInputData _ handleNonError handleError (InputDataFile filenameHandling fileProducer) = do
@@ -103,8 +103,8 @@ handleInputData _ handleNonError handleError (InputDataFile filenameHandling fil
 
 handleInputDataStdin
   :: (ByteString -> [ByteString])
-  -> Producer ByteString HighlightM ()
-  -> HighlightM ()
+  -> Producer ByteString HrepM ()
+  -> HrepM ()
 handleInputDataStdin f producer = do
   runEffect $ producer >-> addNewline f >-> Pipes.ByteString.stdout
   where
@@ -134,8 +134,8 @@ handleInputDataFile
      )
   -> (ByteString -> IOException -> Maybe IOException -> [ByteString])
   -> FilenameHandlingFromFiles
-  -> FileProducer HighlightM ()
-  -> HighlightM ()
+  -> FileProducer HrepM ()
+  -> HrepM ()
 handleInputDataFile handleNonError handleError filenameHandling fileProducer = do
   runEffect $ for (numberedProducer fileProducer) g
   where
@@ -144,9 +144,9 @@ handleInputDataFile handleNonError handleError filenameHandling fileProducer = d
          , FileOrigin
          , Either
             (IOException, Maybe IOException)
-            (Producer ByteString HighlightM ())
+            (Producer ByteString HrepM ())
          )
-      -> Effect HighlightM ()
+      -> Effect HrepM ()
     g (_, fileOrigin, Left (ioerr, maybeioerr)) = do
       let filePath = getFilePathFromFileOrigin fileOrigin
       byteStringFilePath <- convertStringToRawByteString filePath
@@ -157,10 +157,10 @@ handleInputDataFile handleNonError handleError filenameHandling fileProducer = d
       byteStringFilePath <- convertStringToRawByteString filePath
       producer >-> bababa byteStringFilePath >-> Pipes.ByteString.stdout
       where
-        bababa :: ByteString -> Pipe ByteString ByteString HighlightM ()
+        bababa :: ByteString -> Pipe ByteString ByteString HrepM ()
         bababa filePath = go
           where
-            go :: Pipe ByteString ByteString HighlightM ()
+            go :: Pipe ByteString ByteString HrepM ()
             go = do
               inputLine <- await
               let outputLines =

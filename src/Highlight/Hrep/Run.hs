@@ -25,18 +25,18 @@ import Highlight.Common.Options
        (IgnoreCase(IgnoreCase, DoNotIgnoreCase), CommonOptions(..),
         RawRegex(RawRegex))
 import Highlight.Hrep.Monad
-       (FilenameHandlingFromFiles(..), HighlightM, createInputData,
-        getIgnoreCaseM, getRawRegexM, handleInputData, runHighlightM,
+       (FilenameHandlingFromFiles(..), HrepM, createInputData,
+        getIgnoreCaseM, getRawRegexM, handleInputData, runHrepM,
         throwRegexCompileErr)
 
 -- TODO: Combine a lot of these functions with the functions in Highlight.Run.
 
 run :: CommonOptions -> IO ()
 run opts = do
-  eitherRes <- runHighlightM opts prog
+  eitherRes <- runHrepM opts prog
   either handleErr return eitherRes
 
-prog :: HighlightM ()
+prog :: HrepM ()
 prog = do
   regex <- compileHighlightRegexWithErr
   inputData <- createInputData
@@ -126,7 +126,7 @@ allColorsList =
 replaceInRedByteString :: ByteString
 replaceInRedByteString = colorVividRedBold <> "$0" <> colorReset
 
-compileHighlightRegexWithErr :: HighlightM RE
+compileHighlightRegexWithErr :: HrepM RE
 compileHighlightRegexWithErr = do
   ignoreCase <- getIgnoreCaseM
   rawRegex <- getRawRegexM
