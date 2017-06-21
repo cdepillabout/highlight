@@ -39,6 +39,7 @@ runHighlightTest opts filterPipe = do
   eitherByteStrings <- runHighlightM opts $ do
     outputProducer <- progOutputProducer
     toListM $ outputProducer >-> filterPipe
+  print eitherByteStrings
   case eitherByteStrings of
     Left err -> error $ "unexpected error: " <> show err
     Right byteStrings -> return . fromStrict $ fold byteStrings
@@ -117,7 +118,7 @@ testHighlightSingleFile =
           & rawRegexLens .~ "or"
           & inputFilenamesLens .~ ["test/golden/test-files/file1"]
   in testHighlightStderrAndStdout
-      "`highlight or \"test/golden/test-files/file1\"`"
+      "`highlight or 'test/golden/test-files/file1'`"
       "test/golden/golden-files/highlight/single-file"
       (runHighlightTest opts)
 
@@ -133,9 +134,11 @@ testHighlightMultiFile =
               , "test/golden/test-files/dir2"
               ]
       testName =
-        "`highlight -i -r and " <>
-          "\"test/golden/test-files/dir1\" " <>
-          "\"test/golden/test-files/dir2\"`"
+        "`touch 'test/golden/test-files/dir2/unreadable-file' ; " <>
+        "chmod 0 'test/golden/test-files/dir2/unreadable-file' ; " <>
+        "highlight -i -r and " <>
+          "'test/golden/test-files/dir1' 'test/golden/test-files/dir2' ; " <>
+        "rm -rf 'test/golden/test-files/dir2/unreadable-file'"
   in testHighlightStderrAndStdout
       testName
       "test/golden/golden-files/highlight/multi-file"
