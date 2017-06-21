@@ -99,7 +99,9 @@ filterStderr = mapFoldable f
     f (OutputStderr byteString) = Just byteString
     f (OutputStdout _) = Nothing
 
-getFileOutputProducer :: MonadIO m => FilePath -> IO (Producer ByteString m ())
+getFileOutputProducer
+  :: MonadIO m
+  => FilePath -> IO (Producer ByteString m ())
 getFileOutputProducer filePath = do
   eitherProducer <- fromFileLines filePath
   case eitherProducer of
