@@ -20,6 +20,7 @@ import Control.Monad.Trans.Class (lift)
 import Data.ByteString (ByteString)
 import Data.List (sort)
 import Data.List.NonEmpty (NonEmpty((:|)))
+import Data.Monoid ((<>))
 import Pipes
        (Effect, Pipe, Producer, (>->), await, each, for, next, runEffect,
         yield)

@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
 
 module Highlight.Highlight.Run where
 
@@ -15,6 +16,7 @@ import qualified Data.ByteString.Char8
 import Data.IntMap.Strict (IntMap, (!), fromList)
 import Data.Monoid ((<>))
 import Pipes (Producer, (>->), await, runEffect, yield)
+import System.IO (stdin)
 import Text.RE.PCRE
        (RE, SimpleREOptions(MultilineInsensitive, MultilineSensitive),
         (*=~), compileRegexWith)
@@ -25,7 +27,8 @@ import Highlight.Common.Color
         colorVividGreenBold, colorVividMagentaBold, colorVividRedBold,
         colorVividWhiteBold)
 import Highlight.Common.Error (handleErr)
-import Highlight.Common.Pipes (stderrConsumer)
+import Highlight.Common.Pipes
+       (fromHandleLines, stderrConsumer, stdinLines)
 import Highlight.Highlight.Monad
        (FilenameHandlingFromStdin(..), FilenameHandlingFromFiles(..),
         FromGrepFilenameState, HighlightM, InputData,
@@ -36,6 +39,8 @@ import Highlight.Highlight.Options
        (IgnoreCase(IgnoreCase, DoNotIgnoreCase), Options(..),
         RawRegex(RawRegex))
 
+import Debug.Trace
+
 run :: Options -> IO ()
 run opts = do
   eitherRes <- runHighlightM opts prog
@@ -43,14 +48,17 @@ run opts = do
 
 prog :: HighlightM ()
 prog = do
-  outputProducer <- progOutputProducer
+  outputProducer <- progOutputProducer stdinLines
   runOutputProducer outputProducer
 
-progOutputProducer :: HighlightM (Producer Output HighlightM ())
-progOutputProducer = do
+progOutputProducer
+  :: Producer ByteString HighlightM ()
+  -> HighlightM (Producer Output HighlightM ())
+progOutputProducer stdinProducer = do
   regex <- compileHighlightRegexWithErr
-  inputData <- createInputData
-  return $ getOutputProducer regex inputData
+  inputData <- createInputData stdinProducer
+  let outputProducer = getOutputProducer regex inputData
+  return outputProducer
 
 getOutputProducer
   :: RE

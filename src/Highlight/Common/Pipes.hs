@@ -19,7 +19,7 @@ import Pipes (Consumer', Producer, await, each, yield)
 import qualified Pipes.Prelude as Pipes
 import Pipes.Safe (MonadSafe, bracket)
 import System.FilePath ((</>))
-import System.IO (Handle, stderr)
+import System.IO (Handle, stderr, stdin)
 #ifdef mingw32_HOST_OS
 #else
 import System.Posix.Directory
@@ -44,6 +44,10 @@ fromHandleLines handle = go
         Left ioerr -> closeHandleIfEOFOrThrow handle ioerr
         Right line -> yield line *> go
 {-# INLINABLE fromHandleLines #-}
+
+stdinLines :: forall m. MonadIO m => Producer ByteString m ()
+stdinLines = fromHandleLines stdin
+{-# INLINABLE stdinLines #-}
 
 -- | Number each value in a 'Producer'.
 --

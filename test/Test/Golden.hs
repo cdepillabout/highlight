@@ -6,43 +6,57 @@ module Test.Golden where
 
 import Control.Exception (bracket_, try)
 import Control.Lens ((&), (.~))
+import Control.Monad (when)
+import Control.Monad.IO.Class (MonadIO)
 import Data.ByteString (ByteString)
 import Data.ByteString.Lazy (fromStrict)
 import qualified Data.ByteString.Lazy as LByteString
 import Data.Foldable (fold)
 import Data.Monoid ((<>))
-import Pipes (Pipe, (>->))
+import Pipes (Pipe, Producer, (>->), each)
 import Pipes.Prelude (mapFoldable, toListM)
 import System.Directory (removePathForcibly)
+import System.Exit (ExitCode(ExitSuccess))
 import System.IO (IOMode(WriteMode), hClose, openBinaryFile)
 import System.IO.Error (isPermissionError)
 #ifdef mingw32_HOST_OS
 #else
 import System.Posix (nullFileMode, setFileMode)
 #endif
-import Test.Tasty (TestTree, testGroup)
+import System.Process (readProcessWithExitCode)
+import Test.Tasty (TestTree, testGroup, withResource)
 import Test.Tasty.Golden (goldenVsString)
 
+import Highlight.Common.Pipes (stdinLines)
+import Highlight.Common.Util (convertStringToRawByteString)
 import Highlight.Highlight.Monad
-       (Output(OutputStderr, OutputStdout), runHighlightM)
+       (HighlightM, Output(OutputStderr, OutputStdout), runHighlightM)
 import Highlight.Highlight.Options
-       (IgnoreCase(IgnoreCase), Options, Recursive(Recursive),
+       (ColorGrepFilenames(ColorGrepFilenames), IgnoreCase(IgnoreCase),
+        Options, Recursive(Recursive), colorGrepFilenamesLens,
         defaultOptions, ignoreCaseLens, inputFilenamesLens, rawRegexLens,
         recursiveLens)
 import Highlight.Highlight.Run (progOutputProducer)
+
+runHighlightTestWithStdin
+  :: Options
+  -> (Producer ByteString HighlightM ())
+  -> (forall m. Monad m => Pipe Output ByteString m ())
+  -> IO LByteString.ByteString
+runHighlightTestWithStdin opts stdinPipe filterPipe = do
+  eitherByteStrings <- runHighlightM opts $ do
+    outputProducer <- progOutputProducer stdinPipe
+    toListM $ outputProducer >-> filterPipe
+  case eitherByteStrings of
+    Left err -> error $ "unexpected error: " <> show err
+    Right byteStrings -> return . fromStrict $ fold byteStrings
 
 runHighlightTest
   :: Options
   -> (forall m. Monad m => Pipe Output ByteString m ())
   -> IO LByteString.ByteString
-runHighlightTest opts filterPipe = do
-  eitherByteStrings <- runHighlightM opts $ do
-    outputProducer <- progOutputProducer
-    toListM $ outputProducer >-> filterPipe
-  print eitherByteStrings
-  case eitherByteStrings of
-    Left err -> error $ "unexpected error: " <> show err
-    Right byteStrings -> return . fromStrict $ fold byteStrings
+runHighlightTest opts =
+  runHighlightTestWithStdin opts stdinLines
 
 filterStdout :: Monad m => Pipe Output ByteString m ()
 filterStdout = mapFoldable f
@@ -72,10 +86,10 @@ testHighlightStderrAndStdout msg path runner =
     , goldenVsString "stdout" (path <> ".stdout") (runner filterStdout)
     ]
 
-goldenTestsIO :: IO TestTree
-goldenTestsIO =
-  bracket_ createUnreadableFile deleteUnreadableFile $
-    return (testGroup "golden tests" [highlightGoldenTests])
+goldenTests :: TestTree
+goldenTests =
+  withResource createUnreadableFile (const deleteUnreadableFile) $
+    const (testGroup "golden tests" [highlightGoldenTests])
 
 createUnreadableFile :: IO ()
 createUnreadableFile = do
@@ -109,6 +123,7 @@ highlightGoldenTests =
     "highlight"
     [ testHighlightSingleFile
     , testHighlightMultiFile
+    , testHighlightFromGrep
     ]
 
 testHighlightSingleFile :: TestTree
@@ -136,10 +151,52 @@ testHighlightMultiFile =
       testName =
         "`touch 'test/golden/test-files/dir2/unreadable-file' ; " <>
         "chmod 0 'test/golden/test-files/dir2/unreadable-file' ; " <>
-        "highlight -i -r and " <>
+        "highlight --ignore-case --recursive and " <>
           "'test/golden/test-files/dir1' 'test/golden/test-files/dir2' ; " <>
         "rm -rf 'test/golden/test-files/dir2/unreadable-file'"
   in testHighlightStderrAndStdout
       testName
       "test/golden/golden-files/highlight/multi-file"
       (runHighlightTest opts)
+
+testHighlightFromGrep :: TestTree
+testHighlightFromGrep =
+  let grepOpts =
+        [ "--recursive"
+        , "and"
+        , "test/golden/test-files/dir1"
+        ]
+      opts =
+        defaultOptions
+          & rawRegexLens .~ "and"
+          & colorGrepFilenamesLens .~ ColorGrepFilenames
+      testName =
+        "`grep --recursive and 'test/golden/test-files/dir1' | " <>
+        "highlight --from-grep and`"
+  in testHighlightStderrAndStdout
+      testName
+      "test/golden/golden-files/highlight/from-grep"
+      (go grepOpts opts)
+  where
+    go
+      :: [String]
+      -> Options
+      -> (forall m. Monad m => Pipe Output ByteString m ())
+      -> IO LByteString.ByteString
+    go grepOpts opts outputPipe = do
+      grepProducer <- runGrepProducer grepOpts
+      runHighlightTestWithStdin opts grepProducer outputPipe
+
+runGrep :: [String] -> IO [ByteString]
+runGrep options = do
+  (exitCode, stdoutString, stderrString) <-
+    readProcessWithExitCode "grep" options ""
+  when (stderrString /= "") .
+    error $ "ERROR: `grep` returned the following stderr: " <> stderrString
+  when (exitCode /= ExitSuccess) .
+    error $ "ERROR: `grep` ended with exit code: " <> show exitCode
+  byteStrings <- traverse convertStringToRawByteString $ lines stdoutString
+  return byteStrings
+
+runGrepProducer :: [String] -> IO (Producer ByteString HighlightM ())
+runGrepProducer = fmap each . runGrep

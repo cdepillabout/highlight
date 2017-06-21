@@ -3,6 +3,7 @@
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Highlight.Highlight.Monad
@@ -16,13 +17,15 @@ import Prelude.Compat
 import Control.Exception (IOException, try)
 import Control.Lens (view)
 import Control.Monad.Except (ExceptT, MonadError, runExceptT, throwError)
-import Control.Monad.IO.Class (MonadIO(liftIO))
+import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Reader (MonadReader, ReaderT, ask, reader, runReaderT)
 import Control.Monad.State (MonadState, StateT, evalStateT, get, put)
 import Control.Monad.Trans.Class (lift)
 import Data.ByteString (ByteString)
 import Data.List (sort)
 import Data.List.NonEmpty (NonEmpty((:|)))
+import Data.Monoid ((<>))
+import Data.String (IsString)
 import Pipes
        (Consumer, Effect, Pipe, Producer, (>->), await, each, for, next, runEffect,
         yield)
@@ -95,8 +98,10 @@ getColorGrepFilenamesM = view colorGrepFilenamesLens
 -- Pipes --
 -----------
 
-createInputData :: HighlightM (InputData HighlightM ())
-createInputData = do
+createInputData
+  :: Producer ByteString HighlightM ()
+  -> HighlightM (InputData HighlightM ())
+createInputData stdinProducer = do
   inputFilenames <-
     fmap (FileSpecifiedByUser . unInputFilename) <$> getInputFilenamesM
   recursive <- getRecursiveM
@@ -104,7 +109,7 @@ createInputData = do
   case inputFilenames of
     [] -> do
       let filenameHandling = computeFilenameHandlingFromStdin colorGrepFilenames
-      return . InputDataStdin filenameHandling $ fromHandleLines stdin
+      return $ InputDataStdin filenameHandling stdinProducer
     (file1:files) -> do
       let lalas =
             fmap
@@ -220,6 +225,7 @@ handleInputDataFile handleNonError handleError filenameHandling fileProducer =
 data Output
   = OutputStdout !ByteString
   | OutputStderr !ByteString
+  deriving (Eq, Read, Show)
 
 outputConsumer :: MonadIO m => Consumer Output m ()
 outputConsumer = do
