@@ -24,7 +24,7 @@ import Highlight.Common.Options
         HasIgnoreCase(ignoreCaseLens), HasInputFilenames(inputFilenamesLens),
         HasRawRegex(rawRegexLens), HasRecursive(recursiveLens),
         IgnoreCase(DoNotIgnoreCase, IgnoreCase),
-        InputFilename(unInputFilename), RawRegex(RawRegex),
+        InputFilename(InputFilename, unInputFilename), RawRegex(RawRegex),
         Recursive(Recursive), commonOptionsParser, defaultCommonOptions)
 
 --------------------------

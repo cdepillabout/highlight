@@ -1,4 +1,5 @@
 {-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -10,6 +11,7 @@ import Prelude.Compat
 import Control.Applicative (many)
 import Control.Lens (Lens', lens)
 import Data.Monoid ((<>))
+import Data.String (IsString)
 import Options.Applicative
        (Parser, flag, help, long, metavar, short, strArgument)
 
@@ -58,7 +60,7 @@ recursiveParser =
 
 newtype RawRegex = RawRegex
   { unRawRegex :: String
-  } deriving (Eq, Read, Show)
+  } deriving (Eq, IsString, Read, Show)
 
 class HasRawRegex r where
   rawRegexLens :: Lens' r RawRegex
@@ -76,7 +78,7 @@ rawRegexParser =
 
 newtype InputFilename = InputFilename
   { unInputFilename :: FilePath
-  } deriving (Eq, Read, Show)
+  } deriving (Eq, IsString, Read, Show)
 
 class HasInputFilenames r where
   inputFilenamesLens :: Lens' r [InputFilename]

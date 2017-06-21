@@ -101,6 +101,7 @@ test-suite highlight-test
   build-depends:       base
                      , bytestring
                      , highlight
+                     , lens
                      , pipes
                      , tasty
                      , tasty-golden
