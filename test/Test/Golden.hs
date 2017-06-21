@@ -99,6 +99,18 @@ filterStderr = mapFoldable f
     f (OutputStderr byteString) = Just byteString
     f (OutputStdout _) = Nothing
 
+getFileOutputProducer :: MonadIO m => FilePath -> IO (Producer ByteString m ())
+getFileOutputProducer filePath = do
+  eitherProducer <- fromFileLines filePath
+  case eitherProducer of
+    Left ioerr ->
+      error $
+        "ERROR: following error occured when trying to read \"" <>
+        grepOutputTestFile <>
+        "\": " <>
+        show ioerr
+    Right producer -> return producer
+
 testStderrAndStdout
   :: String
   -> FilePath
@@ -184,7 +196,7 @@ testHighlightMultiFile =
         "chmod 0 'test/golden/test-files/dir2/unreadable-file' ; " <>
         "highlight --ignore-case --recursive and " <>
           "'test/golden/test-files/dir1' 'test/golden/test-files/dir2' ; " <>
-        "rm -rf 'test/golden/test-files/dir2/unreadable-file'"
+        "rm -rf 'test/golden/test-files/dir2/unreadable-file'`"
   in testStderrAndStdout
       testName
       "test/golden/golden-files/highlight/multi-file"
@@ -197,7 +209,7 @@ testHighlightFromGrep =
           & rawRegexLens .~ "and"
           & colorGrepFilenamesLens .~ ColorGrepFilenames
       testName =
-        "cat test/golden/test-files/grep-output | " <>
+        "`cat test/golden/test-files/grep-output | " <>
         "highlight --from-grep and`"
   in testStderrAndStdout
       testName
@@ -209,20 +221,8 @@ testHighlightFromGrep =
       -> (forall m. Monad m => Pipe Output ByteString m ())
       -> IO LByteString.ByteString
     go opts outputPipe = do
-      grepOutputProducer <- getGrepOutputProducer
+      grepOutputProducer <- getFileOutputProducer grepOutputTestFile
       runHighlightTestWithStdin opts grepOutputProducer outputPipe
-
-getGrepOutputProducer :: IO (Producer ByteString HighlightM ())
-getGrepOutputProducer = do
-  eitherProducer <- fromFileLines grepOutputTestFile
-  case eitherProducer of
-    Left ioerr ->
-      error $
-        "ERROR: following error occured when trying to read \"" <>
-        grepOutputTestFile <>
-        "\": " <>
-        show ioerr
-    Right producer -> return producer
 
 -- | This is the output file from @grep@ to use for the test
 -- 'testHighlightFromGrep'.
@@ -243,7 +243,7 @@ hrepGoldenTests =
     "hrep"
     [ testHrepSingleFile
     , testHrepMultiFile
-    -- , testHrepFromGrep
+    , testHrepFromStdin
     ]
 
 testHrepSingleFile :: TestTree
@@ -273,8 +273,29 @@ testHrepMultiFile =
         "chmod 0 'test/golden/test-files/dir2/unreadable-file' ; " <>
         "hrep --ignore-case --recursive as " <>
           "'test/golden/test-files/dir1' 'test/golden/test-files/dir2' ; " <>
-        "rm -rf 'test/golden/test-files/dir2/unreadable-file'"
+        "rm -rf 'test/golden/test-files/dir2/unreadable-file'`"
   in testStderrAndStdout
       testName
       "test/golden/golden-files/hrep/multi-file"
       (runHrepTest opts)
+
+testHrepFromStdin :: TestTree
+testHrepFromStdin =
+  let opts =
+        defaultCommonOptions & rawRegexLens .~ "co."
+      stdinInputFile = "test/golden/test-files/file2"
+      testName =
+        "`cat '" <> stdinInputFile <> "' | hrep 'co.'`"
+  in testStderrAndStdout
+      testName
+      "test/golden/golden-files/hrep/from-stdin"
+      (go opts stdinInputFile)
+  where
+    go
+      :: CommonOptions
+      -> FilePath
+      -> (forall m. Monad m => Pipe Output ByteString m ())
+      -> IO LByteString.ByteString
+    go opts stdinInputFile outputPipe = do
+      stdinProducer <- getFileOutputProducer stdinInputFile
+      runHrepTestWithStdin opts stdinProducer outputPipe

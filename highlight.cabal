@@ -18,6 +18,12 @@ extra-source-files:  README.md
                    , test/golden/golden-files/highlight/multi-file.stdout
                    , test/golden/golden-files/highlight/single-file.stderr
                    , test/golden/golden-files/highlight/single-file.stdout
+                   , test/golden/golden-files/hrep/from-stdin.stderr
+                   , test/golden/golden-files/hrep/from-stdin.stdout
+                   , test/golden/golden-files/hrep/multi-file.stderr
+                   , test/golden/golden-files/hrep/multi-file.stdout
+                   , test/golden/golden-files/hrep/single-file.stderr
+                   , test/golden/golden-files/hrep/single-file.stdout
                    , test/golden/test-files/dir1/file3
                    , test/golden/test-files/dir1/file4
                    , test/golden/test-files/dir1/subdir1/file5
