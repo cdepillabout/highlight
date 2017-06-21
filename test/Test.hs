@@ -2,7 +2,7 @@ module Main where
 
 import Test.Tasty (TestTree, defaultMain, testGroup)
 
-import Test.Golden (goldenTests)
+import Test.Golden (goldenTestsIO)
 
 main :: IO ()
 main = do
@@ -12,6 +12,6 @@ main = do
 
 testsIO :: IO TestTree
 testsIO = do
-  -- serverTests <- serverTestsIO
-  pure $ testGroup "tests" [goldenTests]
+  goldenTests <- goldenTestsIO
+  return $ testGroup "tests" [goldenTests]
 
