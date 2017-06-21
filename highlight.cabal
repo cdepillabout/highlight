@@ -104,6 +104,7 @@ test-suite highlight-test
   other-modules:       Test.Golden
   hs-source-dirs:      test
   build-depends:       base
+                     , base-compat
                      , bytestring
                      , directory
                      , highlight
@@ -112,6 +113,8 @@ test-suite highlight-test
                      , process
                      , tasty
                      , tasty-golden
+                     , transformers
+                     , transformers-compat
   if os(windows)
     Build-Depends:     Win32
   else
