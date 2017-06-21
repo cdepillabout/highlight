@@ -106,7 +106,7 @@ test-suite highlight-test
   build-depends:       base
                      , base-compat
                      , bytestring
-                     , directory
+                     , directory >= 1.2.7
                      , highlight
                      , lens
                      , pipes
