@@ -12,6 +12,8 @@ category:            Text
 build-type:          Simple
 extra-source-files:  README.md
                    , img/highlight-example-screenshot.png
+                   , test/golden/golden-files/highlight/from-grep.stderr
+                   , test/golden/golden-files/highlight/from-grep.stdout
                    , test/golden/golden-files/highlight/multi-file.stderr
                    , test/golden/golden-files/highlight/multi-file.stdout
                    , test/golden/golden-files/highlight/single-file.stderr
