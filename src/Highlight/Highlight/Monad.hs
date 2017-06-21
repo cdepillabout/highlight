@@ -159,7 +159,7 @@ handleInputDataStdin f filenameHandling producer =
         go :: Pipe ByteString Output m ()
         go = do
           inputLine <- await
-          modifiedLine <- lift $ func inputLine >>= pure . fmap OutputStdout
+          modifiedLine <- lift $ func inputLine >>= return . fmap OutputStdout
           case modifiedLine of
             [] -> go
             (_:_) -> do
