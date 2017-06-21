@@ -27,7 +27,7 @@ import System.Process (readProcessWithExitCode)
 import Test.Tasty (TestTree, testGroup, withResource)
 import Test.Tasty.Golden (goldenVsString)
 
-import Highlight.Common.Pipes (stdinLines)
+import Highlight.Common.Pipes (fromFileLines, stdinLines)
 import Highlight.Common.Util (convertStringToRawByteString)
 import Highlight.Highlight.Monad
        (HighlightM, Output(OutputStderr, OutputStdout), runHighlightM)
@@ -161,42 +161,43 @@ testHighlightMultiFile =
 
 testHighlightFromGrep :: TestTree
 testHighlightFromGrep =
-  let grepOpts =
-        [ "--recursive"
-        , "and"
-        , "test/golden/test-files/dir1"
-        ]
-      opts =
+  let opts =
         defaultOptions
           & rawRegexLens .~ "and"
           & colorGrepFilenamesLens .~ ColorGrepFilenames
       testName =
-        "`grep --recursive and 'test/golden/test-files/dir1' | " <>
+        "cat test/golden/test-files/grep-output | " <>
         "highlight --from-grep and`"
   in testHighlightStderrAndStdout
       testName
       "test/golden/golden-files/highlight/from-grep"
-      (go grepOpts opts)
+      (go opts)
   where
     go
-      :: [String]
-      -> Options
+      :: Options
       -> (forall m. Monad m => Pipe Output ByteString m ())
       -> IO LByteString.ByteString
-    go grepOpts opts outputPipe = do
-      grepProducer <- runGrepProducer grepOpts
-      runHighlightTestWithStdin opts grepProducer outputPipe
+    go opts outputPipe = do
+      grepOutputProducer <- getGrepOutputProducer
+      runHighlightTestWithStdin opts grepOutputProducer outputPipe
 
-runGrep :: [String] -> IO [ByteString]
-runGrep options = do
-  (exitCode, stdoutString, stderrString) <-
-    readProcessWithExitCode "grep" options ""
-  when (stderrString /= "") .
-    error $ "ERROR: `grep` returned the following stderr: " <> stderrString
-  when (exitCode /= ExitSuccess) .
-    error $ "ERROR: `grep` ended with exit code: " <> show exitCode
-  byteStrings <- traverse convertStringToRawByteString $ lines stdoutString
-  return byteStrings
+getGrepOutputProducer :: IO (Producer ByteString HighlightM ())
+getGrepOutputProducer = do
+  eitherProducer <- fromFileLines grepOutputTestFile
+  case eitherProducer of
+    Left ioerr ->
+      error $
+        "ERROR: following error occured when trying to read \"" <>
+        grepOutputTestFile <>
+        "\": " <>
+        show ioerr
+    Right producer -> return producer
 
-runGrepProducer :: [String] -> IO (Producer ByteString HighlightM ())
-runGrepProducer = fmap each . runGrep
+-- | This is the output file from @grep@ to use for the test
+-- 'testHighlightFromGrep'.
+--
+-- This file was created with the following command:
+--
+-- > $ grep --recursive and 'test/golden/test-files/dir1'
+grepOutputTestFile :: FilePath
+grepOutputTestFile = "test/golden/test-files/from-grep"

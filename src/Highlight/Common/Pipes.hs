@@ -26,7 +26,8 @@ import System.Posix.Directory
        (DirStream, closeDirStream, openDirStream, readDirStream)
 #endif
 
-import Highlight.Common.Util (closeHandleIfEOFOrThrow)
+import Highlight.Common.Util
+       (closeHandleIfEOFOrThrow, openFilePathForReading)
 
 -- | Read input from a 'Handle', split it into lines, and return each of those
 -- lines as a 'ByteString' in a 'Producer'.
@@ -48,6 +49,17 @@ fromHandleLines handle = go
 stdinLines :: forall m. MonadIO m => Producer ByteString m ()
 stdinLines = fromHandleLines stdin
 {-# INLINABLE stdinLines #-}
+
+fromFileLines
+  :: forall m n.
+     (MonadIO m, MonadIO n)
+  => FilePath
+  -> m (Either IOException (Producer ByteString n ()))
+fromFileLines filePath = do
+  eitherHandle <- openFilePathForReading filePath
+  case eitherHandle of
+    Left ioerr -> return $ Left ioerr
+    Right handle -> return . Right $ fromHandleLines handle
 
 -- | Number each value in a 'Producer'.
 --
