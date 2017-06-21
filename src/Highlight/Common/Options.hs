@@ -1,3 +1,4 @@
+{-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -7,6 +8,7 @@ import Prelude ()
 import Prelude.Compat
 
 import Control.Applicative (many)
+import Control.Lens (Lens', lens)
 import Data.Monoid ((<>))
 import Options.Applicative
        (Parser, flag, help, long, metavar, short, strArgument)
@@ -19,11 +21,9 @@ data IgnoreCase = IgnoreCase | DoNotIgnoreCase
   deriving (Eq, Read, Show)
 
 class HasIgnoreCase r where
-  getIgnoreCase :: r -> IgnoreCase
-
-instance HasIgnoreCase CommonOptions where
-  getIgnoreCase :: CommonOptions -> IgnoreCase
-  getIgnoreCase = commonOptionsIgnoreCase
+  ignoreCaseLens :: Lens' r IgnoreCase
+  default ignoreCaseLens :: HasCommonOptions r => Lens' r IgnoreCase
+  ignoreCaseLens = commonOptionsLens . ignoreCaseLens
 
 ignoreCaseParser :: Parser IgnoreCase
 ignoreCaseParser =
@@ -40,11 +40,9 @@ data Recursive = Recursive | NotRecursive
   deriving (Eq, Read, Show)
 
 class HasRecursive r where
-  getRecursive :: r -> Recursive
-
-instance HasRecursive CommonOptions where
-  getRecursive :: CommonOptions -> Recursive
-  getRecursive = commonOptionsRecursive
+  recursiveLens :: Lens' r Recursive
+  default recursiveLens :: HasCommonOptions r => Lens' r Recursive
+  recursiveLens = commonOptionsLens . recursiveLens
 
 recursiveParser :: Parser Recursive
 recursiveParser =
@@ -63,11 +61,9 @@ newtype RawRegex = RawRegex
   } deriving (Eq, Read, Show)
 
 class HasRawRegex r where
-  getRawRegex :: r -> RawRegex
-
-instance HasRawRegex CommonOptions where
-  getRawRegex :: CommonOptions -> RawRegex
-  getRawRegex = commonOptionsRawRegex
+  rawRegexLens :: Lens' r RawRegex
+  default rawRegexLens :: HasCommonOptions r => Lens' r RawRegex
+  rawRegexLens = commonOptionsLens . rawRegexLens
 
 rawRegexParser :: Parser RawRegex
 rawRegexParser =
@@ -83,11 +79,9 @@ newtype InputFilename = InputFilename
   } deriving (Eq, Read, Show)
 
 class HasInputFilenames r where
-  getInputFilenames :: r -> [InputFilename]
-
-instance HasInputFilenames CommonOptions where
-  getInputFilenames :: CommonOptions -> [InputFilename]
-  getInputFilenames = commonOptionsInputFilenames
+  inputFilenamesLens :: Lens' r [InputFilename]
+  default inputFilenamesLens :: HasCommonOptions r => Lens' r [InputFilename]
+  inputFilenamesLens = commonOptionsLens . inputFilenamesLens
 
 inputFilenamesParser :: Parser [InputFilename]
 inputFilenamesParser =
@@ -106,11 +100,39 @@ data CommonOptions = CommonOptions
   } deriving (Eq, Read, Show)
 
 class HasCommonOptions r where
-  getCommonOptions :: r -> CommonOptions
+  commonOptionsLens :: Lens' r CommonOptions
 
 instance HasCommonOptions CommonOptions where
-  getCommonOptions :: CommonOptions -> CommonOptions
-  getCommonOptions = id
+  commonOptionsLens :: Lens' CommonOptions CommonOptions
+  commonOptionsLens = id
+
+instance HasIgnoreCase CommonOptions where
+  ignoreCaseLens :: Lens' CommonOptions IgnoreCase
+  ignoreCaseLens =
+    lens
+      commonOptionsIgnoreCase
+      (\s a -> s {commonOptionsIgnoreCase = a})
+
+instance HasRecursive CommonOptions where
+  recursiveLens :: Lens' CommonOptions Recursive
+  recursiveLens =
+    lens
+      commonOptionsRecursive
+      (\s a -> s {commonOptionsRecursive = a})
+
+instance HasRawRegex CommonOptions where
+  rawRegexLens :: Lens' CommonOptions RawRegex
+  rawRegexLens =
+    lens
+      commonOptionsRawRegex
+      (\s a -> s {commonOptionsRawRegex = a})
+
+instance HasInputFilenames CommonOptions where
+  inputFilenamesLens :: Lens' CommonOptions [InputFilename]
+  inputFilenamesLens =
+    lens
+      commonOptionsInputFilenames
+      (\s a -> s {commonOptionsInputFilenames = a})
 
 commonOptionsParser :: Parser CommonOptions
 commonOptionsParser =

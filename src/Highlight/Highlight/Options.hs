@@ -15,13 +15,14 @@ module Highlight.Highlight.Options
 import Prelude ()
 import Prelude.Compat
 
+import Control.Lens (Lens', lens)
 import Data.Monoid ((<>))
 import Options.Applicative (Parser, flag, help, long, short)
 
 import Highlight.Common.Options
-       (CommonOptions, HasCommonOptions(getCommonOptions),
-        HasIgnoreCase(getIgnoreCase), HasInputFilenames(getInputFilenames),
-        HasRawRegex(getRawRegex), HasRecursive(getRecursive),
+       (CommonOptions, HasCommonOptions(commonOptionsLens),
+        HasIgnoreCase(ignoreCaseLens), HasInputFilenames(inputFilenamesLens),
+        HasRawRegex(rawRegexLens), HasRecursive(recursiveLens),
         IgnoreCase(DoNotIgnoreCase, IgnoreCase),
         InputFilename(unInputFilename), RawRegex(RawRegex),
         Recursive(Recursive), commonOptionsParser, defaultCommonOptions)
@@ -34,11 +35,7 @@ data ColorGrepFilenames = ColorGrepFilenames | DoNotColorGrepFileNames
   deriving (Eq, Read, Show)
 
 class HasColorGrepFilenames r where
-  getColorGrepFilenames :: r -> ColorGrepFilenames
-
-instance HasColorGrepFilenames Options where
-  getColorGrepFilenames :: Options -> ColorGrepFilenames
-  getColorGrepFilenames = optionsColorGrepFilenames
+  colorGrepFilenamesLens :: Lens' r ColorGrepFilenames
 
 colorGrepFilenamesParser :: Parser ColorGrepFilenames
 colorGrepFilenamesParser =
@@ -58,31 +55,30 @@ data Options = Options
   } deriving (Eq, Read, Show)
 
 class HasOptions r where
-  getOptions :: r -> Options
+  optionsLens :: Lens' r Options
 
 instance HasOptions Options where
-  getOptions :: Options -> Options
-  getOptions = id
+  optionsLens :: Lens' Options Options
+  optionsLens = id
 
-instance HasIgnoreCase Options where
-  getIgnoreCase :: Options -> IgnoreCase
-  getIgnoreCase = getIgnoreCase . getCommonOptions
-
-instance HasRecursive Options where
-  getRecursive :: Options -> Recursive
-  getRecursive = getRecursive . getCommonOptions
-
-instance HasRawRegex Options where
-  getRawRegex :: Options -> RawRegex
-  getRawRegex = getRawRegex . getCommonOptions
-
-instance HasInputFilenames Options where
-  getInputFilenames :: Options -> [InputFilename]
-  getInputFilenames = getInputFilenames . getCommonOptions
+instance HasColorGrepFilenames Options where
+  colorGrepFilenamesLens :: Lens' Options ColorGrepFilenames
+  colorGrepFilenamesLens =
+    lens
+      optionsColorGrepFilenames
+      (\s a -> s {optionsColorGrepFilenames = a})
 
 instance HasCommonOptions Options where
-  getCommonOptions :: Options -> CommonOptions
-  getCommonOptions = optionsCommonOptions
+  commonOptionsLens :: Lens' Options CommonOptions
+  commonOptionsLens =
+    lens
+      optionsCommonOptions
+      (\s a -> s {optionsCommonOptions = a})
+
+instance HasIgnoreCase Options
+instance HasRecursive Options
+instance HasRawRegex Options
+instance HasInputFilenames Options
 
 optionsParser :: Parser Options
 optionsParser =

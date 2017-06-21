@@ -11,6 +11,7 @@ import Prelude ()
 import Prelude.Compat
 
 import Control.Exception (IOException, try)
+import Control.Lens (view)
 import Control.Monad.Except (ExceptT, MonadError, runExceptT, throwError)
 import Control.Monad.IO.Class (MonadIO(liftIO))
 import Control.Monad.Reader (MonadReader, ReaderT, ask, reader, runReaderT)
@@ -29,9 +30,9 @@ import System.IO (stdin)
 
 import Highlight.Common.Error (HighlightErr(..))
 import Highlight.Common.Options
-       (HasIgnoreCase(getIgnoreCase),
-        HasInputFilenames(getInputFilenames), HasRecursive(getRecursive),
-        HasRawRegex(getRawRegex), IgnoreCase, InputFilename, RawRegex,
+       (HasIgnoreCase(ignoreCaseLens),
+        HasInputFilenames(inputFilenamesLens), HasRecursive(recursiveLens),
+        HasRawRegex(rawRegexLens), IgnoreCase, InputFilename, RawRegex,
         Recursive(Recursive))
 import Highlight.Common.Pipes
        (childOf, fromHandleLines, numberedProducer, stderrConsumer)
@@ -62,18 +63,17 @@ runCommonHighlightM r s =
     unCommonHighlightM
 
 getIgnoreCaseM :: (HasIgnoreCase r, MonadReader r m) => m IgnoreCase
-getIgnoreCaseM  = reader getIgnoreCase
+getIgnoreCaseM  = view ignoreCaseLens
 
 getRecursiveM :: (HasRecursive r, MonadReader r m) => m Recursive
-getRecursiveM = reader getRecursive
+getRecursiveM = view recursiveLens
 
 getRawRegexM :: (HasRawRegex r, MonadReader r m) => m RawRegex
-getRawRegexM = reader getRawRegex
+getRawRegexM = view rawRegexLens
 
 getInputFilenamesM
-  :: (HasInputFilenames r, MonadReader r m)
-  => m [InputFilename]
-getInputFilenamesM = reader getInputFilenames
+  :: (HasInputFilenames r, MonadReader r m) => m [InputFilename]
+getInputFilenamesM = view inputFilenamesLens
 
 ------------------
 -- Throw Errors --

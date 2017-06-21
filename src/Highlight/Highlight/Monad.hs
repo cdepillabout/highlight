@@ -14,6 +14,7 @@ import Prelude ()
 import Prelude.Compat
 
 import Control.Exception (IOException, try)
+import Control.Lens (view)
 import Control.Monad.Except (ExceptT, MonadError, runExceptT, throwError)
 import Control.Monad.IO.Class (MonadIO(liftIO))
 import Control.Monad.Reader (MonadReader, ReaderT, ask, reader, runReaderT)
@@ -46,7 +47,7 @@ import Highlight.Common.Util
         openFilePathForReading)
 import Highlight.Highlight.Options
        (ColorGrepFilenames(ColorGrepFilenames, DoNotColorGrepFileNames),
-        HasColorGrepFilenames(getColorGrepFilenames), IgnoreCase,
+        HasColorGrepFilenames(colorGrepFilenamesLens), IgnoreCase,
         InputFilename(unInputFilename), Options(..), RawRegex,
         Recursive(Recursive))
 
@@ -87,9 +88,8 @@ runHighlightM opts = runCommonHighlightM opts initFromGrepFilenameState
 ----------------------------------
 
 getColorGrepFilenamesM
-  :: (HasColorGrepFilenames r, MonadReader r m)
-  => m ColorGrepFilenames
-getColorGrepFilenamesM = reader getColorGrepFilenames
+  :: (HasColorGrepFilenames r, MonadReader r m) => m ColorGrepFilenames
+getColorGrepFilenamesM = view colorGrepFilenamesLens
 
 -----------
 -- Pipes --
