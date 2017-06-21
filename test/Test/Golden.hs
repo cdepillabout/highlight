@@ -64,9 +64,6 @@ testHighlightStderrAndStdout msg path runner =
 goldenTests :: TestTree
 goldenTests = testGroup "golden tests" [highlightGoldenTests]
 
--- checkFrontEndApiType :: ExpectedFrontEndApi :~: FrontEndApi
--- checkFrontEndApiType = Refl
-
 highlightGoldenTests :: TestTree
 highlightGoldenTests =
   testGroup
