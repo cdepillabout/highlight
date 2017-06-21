@@ -30,16 +30,19 @@ import System.Process (readProcessWithExitCode)
 import Test.Tasty (TestTree, testGroup, withResource)
 import Test.Tasty.Golden (goldenVsString)
 
+import Highlight.Common.Monad (Output(OutputStderr, OutputStdout))
+import Highlight.Common.Options
+       (CommonOptions, IgnoreCase(IgnoreCase), Recursive(Recursive),
+        ignoreCaseLens, inputFilenamesLens, rawRegexLens, recursiveLens)
 import Highlight.Common.Pipes (fromFileLines, stdinLines)
 import Highlight.Common.Util (convertStringToRawByteString)
-import Highlight.Highlight.Monad
-       (HighlightM, Output(OutputStderr, OutputStdout), runHighlightM)
+import Highlight.Highlight.Monad (HighlightM, runHighlightM)
 import Highlight.Highlight.Options
-       (ColorGrepFilenames(ColorGrepFilenames), IgnoreCase(IgnoreCase),
-        Options, Recursive(Recursive), colorGrepFilenamesLens,
-        defaultOptions, ignoreCaseLens, inputFilenamesLens, rawRegexLens,
-        recursiveLens)
-import Highlight.Highlight.Run (progOutputProducer)
+       (ColorGrepFilenames(ColorGrepFilenames), Options,
+        colorGrepFilenamesLens, defaultOptions)
+import Highlight.Highlight.Run (highlightOutputProducer)
+import Highlight.Hrep.Monad (HrepM, runHrepM)
+import Highlight.Hrep.Run (hrepOutputProducer)
 
 runHighlightTestWithStdin
   :: Options
@@ -48,7 +51,7 @@ runHighlightTestWithStdin
   -> IO LByteString.ByteString
 runHighlightTestWithStdin opts stdinPipe filterPipe = do
   eitherByteStrings <- runHighlightM opts $ do
-    outputProducer <- progOutputProducer stdinPipe
+    outputProducer <- highlightOutputProducer stdinPipe
     toListM $ outputProducer >-> filterPipe
   case eitherByteStrings of
     Left err -> error $ "unexpected error: " <> show err
@@ -60,6 +63,26 @@ runHighlightTest
   -> IO LByteString.ByteString
 runHighlightTest opts =
   runHighlightTestWithStdin opts stdinLines
+
+runHrepTestWithStdin
+  :: CommonOptions
+  -> (Producer ByteString HrepM ())
+  -> (forall m. Monad m => Pipe Output ByteString m ())
+  -> IO LByteString.ByteString
+runHrepTestWithStdin opts stdinPipe filterPipe = do
+  eitherByteStrings <- runHrepM opts $ do
+    outputProducer <- hrepOutputProducer stdinPipe
+    toListM $ outputProducer >-> filterPipe
+  case eitherByteStrings of
+    Left err -> error $ "unexpected error: " <> show err
+    Right byteStrings -> return . fromStrict $ fold byteStrings
+
+runHrepTest
+  :: CommonOptions
+  -> (forall m. Monad m => Pipe Output ByteString m ())
+  -> IO LByteString.ByteString
+runHrepTest opts =
+  runHrepTestWithStdin opts stdinLines
 
 filterStdout :: Monad m => Pipe Output ByteString m ()
 filterStdout = mapFoldable f
@@ -75,14 +98,14 @@ filterStderr = mapFoldable f
     f (OutputStderr byteString) = Just byteString
     f (OutputStdout _) = Nothing
 
-testHighlightStderrAndStdout
+testStderrAndStdout
   :: String
   -> FilePath
   -> ( ( forall m. Monad m => Pipe Output ByteString m ())
       -> IO LByteString.ByteString
      )
   -> TestTree
-testHighlightStderrAndStdout msg path runner =
+testStderrAndStdout msg path runner =
   testGroup
     msg
     [ goldenVsString "stderr" (path <> ".stderr") (runner filterStderr)
@@ -135,7 +158,7 @@ testHighlightSingleFile =
         defaultOptions
           & rawRegexLens .~ "or"
           & inputFilenamesLens .~ ["test/golden/test-files/file1"]
-  in testHighlightStderrAndStdout
+  in testStderrAndStdout
       "`highlight or 'test/golden/test-files/file1'`"
       "test/golden/golden-files/highlight/single-file"
       (runHighlightTest opts)
@@ -157,7 +180,7 @@ testHighlightMultiFile =
         "highlight --ignore-case --recursive and " <>
           "'test/golden/test-files/dir1' 'test/golden/test-files/dir2' ; " <>
         "rm -rf 'test/golden/test-files/dir2/unreadable-file'"
-  in testHighlightStderrAndStdout
+  in testStderrAndStdout
       testName
       "test/golden/golden-files/highlight/multi-file"
       (runHighlightTest opts)
@@ -171,7 +194,7 @@ testHighlightFromGrep =
       testName =
         "cat test/golden/test-files/grep-output | " <>
         "highlight --from-grep and`"
-  in testHighlightStderrAndStdout
+  in testStderrAndStdout
       testName
       "test/golden/golden-files/highlight/from-grep"
       (go opts)

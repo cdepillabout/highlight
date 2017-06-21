@@ -40,13 +40,13 @@ run opts = do
 
 prog :: HrepM ()
 prog = do
-  outputProducer <- progOutputProducer stdinLines
+  outputProducer <- hrepOutputProducer stdinLines
   runOutputProducer outputProducer
 
-progOutputProducer
+hrepOutputProducer
   :: Producer ByteString HrepM ()
   -> HrepM (Producer Output HrepM ())
-progOutputProducer stdinProducer = do
+hrepOutputProducer stdinProducer = do
   regex <- compileHighlightRegexWithErr
   inputData <- createInputData stdinProducer
   let outputProducer = getOutputProducer regex inputData

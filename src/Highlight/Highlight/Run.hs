@@ -46,13 +46,13 @@ run opts = do
 
 prog :: HighlightM ()
 prog = do
-  outputProducer <- progOutputProducer stdinLines
+  outputProducer <- highlightOutputProducer stdinLines
   runOutputProducer outputProducer
 
-progOutputProducer
+highlightOutputProducer
   :: Producer ByteString HighlightM ()
   -> HighlightM (Producer Output HighlightM ())
-progOutputProducer stdinProducer = do
+highlightOutputProducer stdinProducer = do
   regex <- compileHighlightRegexWithErr
   inputData <- createInputData stdinProducer
   let outputProducer = getOutputProducer regex inputData
