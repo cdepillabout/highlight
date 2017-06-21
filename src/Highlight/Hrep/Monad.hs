@@ -38,7 +38,8 @@ import Highlight.Common.Monad
         FileProducer, Output(OutputStderr, OutputStdout),
         computeFilenameHandlingFromFiles, getFilePathFromFileOrigin,
         getIgnoreCaseM, getInputFilenamesM, getRawRegexM, getRecursiveM,
-        produerForSingleFile, runCommonHighlightM, throwRegexCompileErr)
+        outputConsumer, produerForSingleFile, runCommonHighlightM,
+        throwRegexCompileErr)
 import Highlight.Common.Options
        (CommonOptions, IgnoreCase, InputFilename(unInputFilename),
         RawRegex, Recursive(Recursive))

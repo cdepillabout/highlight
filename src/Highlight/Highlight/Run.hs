@@ -39,8 +39,6 @@ import Highlight.Highlight.Options
        (IgnoreCase(IgnoreCase, DoNotIgnoreCase), Options(..),
         RawRegex(RawRegex))
 
-import Debug.Trace
-
 run :: Options -> IO ()
 run opts = do
   eitherRes <- runHighlightM opts prog

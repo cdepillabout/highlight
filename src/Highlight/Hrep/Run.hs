@@ -11,6 +11,7 @@ import Data.ByteString (ByteString)
 import Data.IntMap.Strict (IntMap, (!), fromList)
 import Data.Maybe (maybeToList)
 import Data.Monoid ((<>))
+import Pipes (Producer, (>->), runEffect)
 import Text.RE.PCRE
        (RE, SimpleREOptions(MultilineInsensitive, MultilineSensitive),
         (*=~), anyMatches, compileRegexWith)
@@ -24,10 +25,11 @@ import Highlight.Common.Error (handleErr)
 import Highlight.Common.Options
        (IgnoreCase(IgnoreCase, DoNotIgnoreCase), CommonOptions(..),
         RawRegex(RawRegex))
+import Highlight.Common.Pipes (stdinLines)
 import Highlight.Hrep.Monad
-       (FilenameHandlingFromFiles(..), HrepM, createInputData,
-        getIgnoreCaseM, getRawRegexM, handleInputData, runHrepM,
-        throwRegexCompileErr)
+       (FilenameHandlingFromFiles(..), HrepM, InputData, Output,
+        createInputData, getIgnoreCaseM, getRawRegexM, handleInputData,
+        outputConsumer, runHrepM, throwRegexCompileErr)
 
 -- TODO: Combine a lot of these functions with the functions in Highlight.Run.
 
@@ -38,14 +40,32 @@ run opts = do
 
 prog :: HrepM ()
 prog = do
+  outputProducer <- progOutputProducer stdinLines
+  runOutputProducer outputProducer
+
+progOutputProducer
+  :: Producer ByteString HrepM ()
+  -> HrepM (Producer Output HrepM ())
+progOutputProducer stdinProducer = do
   regex <- compileHighlightRegexWithErr
-  inputData <- createInputData
+  inputData <- createInputData stdinProducer
+  let outputProducer = getOutputProducer regex inputData
+  return outputProducer
+
+getOutputProducer
+  :: RE
+  -> InputData HrepM ()
+  -> Producer Output HrepM ()
+getOutputProducer regex inputData =
   handleInputData
     (handleStdinInput regex)
     (handleFileInput regex)
     handleError
     inputData
-  return ()
+
+runOutputProducer :: Producer Output HrepM () -> HrepM ()
+runOutputProducer producer =
+  runEffect $ producer >-> outputConsumer
 
 handleStdinInput
   :: RE -> ByteString -> [ByteString]
