@@ -35,10 +35,10 @@ import Highlight.Common.Monad
        (CommonHighlightM,
         FilenameHandlingFromFiles(NoFilename, PrintFilename),
         FileOrigin(FileFoundRecursively, FileSpecifiedByUser),
-        FileProducer, computeFilenameHandlingFromFiles,
-        getFilePathFromFileOrigin, getIgnoreCaseM, getInputFilenamesM,
-        getRawRegexM, getRecursiveM, produerForSingleFile,
-        runCommonHighlightM, throwRegexCompileErr)
+        FileProducer, Output(OutputStderr, OutputStdout),
+        computeFilenameHandlingFromFiles, getFilePathFromFileOrigin,
+        getIgnoreCaseM, getInputFilenamesM, getRawRegexM, getRecursiveM,
+        produerForSingleFile, runCommonHighlightM, throwRegexCompileErr)
 import Highlight.Common.Options
        (CommonOptions, IgnoreCase, InputFilename(unInputFilename),
         RawRegex, Recursive(Recursive))
@@ -61,14 +61,16 @@ runHrepM opts = runCommonHighlightM opts ()
 -- Pipes --
 -----------
 
-createInputData :: HrepM (InputData HrepM ())
-createInputData = do
+createInputData
+  :: Producer ByteString HrepM ()
+  -> HrepM (InputData HrepM ())
+createInputData stdinProducer = do
   inputFilenames <-
     fmap (FileSpecifiedByUser . unInputFilename) <$> getInputFilenamesM
   recursive <- getRecursiveM
   case inputFilenames of
     [] -> do
-      return . InputDataStdin $ fromHandleLines stdin
+      return $ InputDataStdin stdinProducer
     (file1:files) -> do
       let lalas =
             fmap
@@ -95,7 +97,7 @@ handleInputData
      )
   -> (ByteString -> IOException -> Maybe IOException -> [ByteString])
   -> InputData HrepM ()
-  -> HrepM ()
+  -> Producer Output HrepM ()
 handleInputData stdinFunc _ _ (InputDataStdin producer) =
   handleInputDataStdin stdinFunc producer
 handleInputData _ handleNonError handleError (InputDataFile filenameHandling fileProducer) = do
@@ -104,25 +106,25 @@ handleInputData _ handleNonError handleError (InputDataFile filenameHandling fil
 handleInputDataStdin
   :: (ByteString -> [ByteString])
   -> Producer ByteString HrepM ()
-  -> HrepM ()
+  -> Producer Output HrepM ()
 handleInputDataStdin f producer = do
-  runEffect $ producer >-> addNewline f >-> Pipes.ByteString.stdout
+  producer >-> addNewline f
   where
     addNewline
       :: forall m. Monad m
       => (ByteString -> [ByteString])
-      -> Pipe ByteString ByteString m ()
+      -> Pipe ByteString Output m ()
     addNewline func = go
       where
-        go :: Pipe ByteString ByteString m ()
+        go :: Pipe ByteString Output m ()
         go = do
           inputLine <- await
-          let modifiedLine = func inputLine
+          let modifiedLine = fmap OutputStdout $ func inputLine
           case modifiedLine of
             [] -> go
             (_:_) -> do
               each modifiedLine
-              yield "\n"
+              yield $ OutputStdout "\n"
               go
 
 handleInputDataFile
@@ -135,9 +137,9 @@ handleInputDataFile
   -> (ByteString -> IOException -> Maybe IOException -> [ByteString])
   -> FilenameHandlingFromFiles
   -> FileProducer HrepM ()
-  -> HrepM ()
+  -> Producer Output HrepM ()
 handleInputDataFile handleNonError handleError filenameHandling fileProducer = do
-  runEffect $ for (numberedProducer fileProducer) g
+  for (numberedProducer fileProducer) g
   where
     g
       :: ( Int
@@ -146,28 +148,35 @@ handleInputDataFile handleNonError handleError filenameHandling fileProducer = d
             (IOException, Maybe IOException)
             (Producer ByteString HrepM ())
          )
-      -> Effect HrepM ()
+      -> Producer Output HrepM ()
     g (_, fileOrigin, Left (ioerr, maybeioerr)) = do
       let filePath = getFilePathFromFileOrigin fileOrigin
       byteStringFilePath <- convertStringToRawByteString filePath
-      let outputLines = handleError byteStringFilePath ioerr maybeioerr
-      (each outputLines *> yield "\n") >-> stderrConsumer
+      let outputLines =
+            fmap OutputStderr $ handleError byteStringFilePath ioerr maybeioerr
+      each outputLines
+      yield $ OutputStderr "\n"
     g (fileNumber, fileOrigin, Right producer) = do
       let filePath = getFilePathFromFileOrigin fileOrigin
       byteStringFilePath <- convertStringToRawByteString filePath
-      producer >-> bababa byteStringFilePath >-> Pipes.ByteString.stdout
+      producer >-> bababa byteStringFilePath
       where
-        bababa :: ByteString -> Pipe ByteString ByteString HrepM ()
+        bababa :: ByteString -> Pipe ByteString Output HrepM ()
         bababa filePath = go
           where
-            go :: Pipe ByteString ByteString HrepM ()
+            go :: Pipe ByteString Output HrepM ()
             go = do
               inputLine <- await
               let outputLines =
-                    handleNonError filenameHandling filePath fileNumber inputLine
+                    fmap OutputStdout $
+                      handleNonError
+                        filenameHandling
+                        filePath
+                        fileNumber
+                        inputLine
               case outputLines of
                 [] -> go
                 (_:_) -> do
                   each outputLines
-                  yield "\n"
+                  yield $ OutputStdout "\n"
                   go

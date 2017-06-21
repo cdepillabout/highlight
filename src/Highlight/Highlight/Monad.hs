@@ -39,10 +39,11 @@ import Highlight.Common.Monad
        (CommonHighlightM,
         FilenameHandlingFromFiles(NoFilename, PrintFilename),
         FileOrigin(FileFoundRecursively, FileSpecifiedByUser),
-        FileProducer, computeFilenameHandlingFromFiles,
-        getFilePathFromFileOrigin, getIgnoreCaseM, getInputFilenamesM,
-        getRawRegexM, getRecursiveM, produerForSingleFile,
-        runCommonHighlightM, throwRegexCompileErr)
+        FileProducer, Output(OutputStderr, OutputStdout),
+        computeFilenameHandlingFromFiles, getFilePathFromFileOrigin,
+        getIgnoreCaseM, getInputFilenamesM, getRawRegexM, getRecursiveM,
+        outputConsumer, produerForSingleFile, runCommonHighlightM,
+        throwRegexCompileErr)
 import Highlight.Common.Pipes
        (childOf, fromHandleLines, numberedProducer, stderrConsumer)
 import Highlight.Common.Util
@@ -214,28 +215,17 @@ handleInputDataFile handleNonError handleError filenameHandling fileProducer =
               inputLine <- await
               let outputLines =
                     fmap OutputStdout $
-                      handleNonError filenameHandling filePath fileNumber inputLine
+                      handleNonError
+                        filenameHandling
+                        filePath
+                        fileNumber
+                        inputLine
               case outputLines of
                 [] -> go
                 (_:_) -> do
                   each outputLines
                   yield $ OutputStdout "\n"
                   go
-
-data Output
-  = OutputStdout !ByteString
-  | OutputStderr !ByteString
-  deriving (Eq, Read, Show)
-
-outputConsumer :: MonadIO m => Consumer Output m ()
-outputConsumer = do
-  output <- await
-  case output of
-    OutputStdout byteString ->
-      yield byteString >-> stdout
-    OutputStderr byteString ->
-      yield byteString >-> stderrConsumer
-  outputConsumer
 
 -----------------------
 -- Filename Handling --

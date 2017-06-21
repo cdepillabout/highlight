@@ -4,6 +4,9 @@
 
 module Test.Golden where
 
+import Prelude ()
+import Prelude.Compat
+
 import Control.Exception (bracket_, try)
 import Control.Lens ((&), (.~))
 import Control.Monad (when)

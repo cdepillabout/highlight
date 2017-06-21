@@ -1,5 +1,8 @@
 module Main where
 
+import Prelude ()
+import Prelude.Compat
+
 import Test.Tasty (TestTree, defaultMain, testGroup)
 
 import Test.Golden (goldenTests)

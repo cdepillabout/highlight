@@ -22,9 +22,9 @@ import Data.List (sort)
 import Data.List.NonEmpty (NonEmpty((:|)))
 import Data.Monoid ((<>))
 import Pipes
-       (Effect, Pipe, Producer, (>->), await, each, for, next, runEffect,
-        yield)
-import qualified Pipes.ByteString
+       (Consumer, Effect, Pipe, Producer, (>->), await, each, for, next,
+        runEffect, yield)
+import Pipes.ByteString (stdout)
 import Pipes.Prelude (toListM)
 import Pipes.Safe (runSafeT)
 import System.IO (stdin)
@@ -145,6 +145,22 @@ produerForSingleFile recursive = go
                   for (each lalas) id
             else
               yield (fileOrigin, Left (fileIOErr, Nothing))
+
+
+data Output
+  = OutputStdout !ByteString
+  | OutputStderr !ByteString
+  deriving (Eq, Read, Show)
+
+outputConsumer :: MonadIO m => Consumer Output m ()
+outputConsumer = do
+  output <- await
+  case output of
+    OutputStdout byteString ->
+      yield byteString >-> stdout
+    OutputStderr byteString ->
+      yield byteString >-> stderrConsumer
+  outputConsumer
 
 -----------------------
 -- Filename Handling --
