@@ -8,7 +8,6 @@ import Prelude ()
 import Prelude.Compat
 
 import Control.Exception (throwIO, try)
-import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO(liftIO))
 import Data.ByteString (ByteString, hGetLine, hPutStr)
 import Foreign.C.Error (Errno(Errno), ePIPE)

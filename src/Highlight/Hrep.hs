@@ -3,8 +3,8 @@ module Highlight.Hrep where
 
 import Data.Monoid ((<>))
 import Options.Applicative
-       (InfoMod, ParserInfo, (<**>), execParser, fullDesc, header, helper,
-        info, progDesc)
+       (InfoMod, ParserInfo, (<**>), execParser, fullDesc, helper, info,
+        progDesc)
 
 import Highlight.Common.Options (CommonOptions, commonOptionsParser)
 import Highlight.Hrep.Run (run)
@@ -20,5 +20,4 @@ defaultMain = do
     infoMod :: InfoMod a
     infoMod =
       fullDesc <>
-      progDesc "Search for PATTERN in each FILE or standard input." {- <>
-      header "hello - a test for optparse-applicative" -}
+      progDesc "Search for PATTERN in each FILE or standard input."

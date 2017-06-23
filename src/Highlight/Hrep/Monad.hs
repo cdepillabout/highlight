@@ -22,13 +22,7 @@ import Control.Monad.Trans.Class (lift)
 import Data.ByteString (ByteString)
 import Data.List (sort)
 import Data.List.NonEmpty (NonEmpty((:|)))
-import Pipes
-       (Effect, Pipe, Producer, (>->), await, each, for, next, runEffect,
-        yield)
-import qualified Pipes.ByteString
-import Pipes.Prelude (toListM)
-import Pipes.Safe (runSafeT)
-import System.IO (stdin)
+import Pipes (Pipe, Producer, (>->), await, each, for, yield)
 
 import Highlight.Common.Error (HighlightErr(..))
 import Highlight.Common.Monad
@@ -41,13 +35,10 @@ import Highlight.Common.Monad
         getRawRegexM, getRecursiveM, outputConsumer, produerForSingleFile,
         runCommonHighlightM, throwRegexCompileErr)
 import Highlight.Common.Options
-       (CommonOptions, IgnoreCase, InputFilename(unInputFilename),
-        RawRegex, Recursive(Recursive))
-import Highlight.Common.Pipes
-       (childOf, fromHandleLines, numberedProducer, stderrConsumer)
+       (CommonOptions, InputFilename(unInputFilename))
+import Highlight.Common.Pipes (numberedProducer)
 import Highlight.Common.Util
-       (combineApplicatives, convertStringToRawByteString,
-        openFilePathForReading)
+       (combineApplicatives, convertStringToRawByteString)
 
 --------------------
 -- The Hrep Monad --

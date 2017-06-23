@@ -8,29 +8,21 @@ import Prelude.Compat
 
 import Control.Exception (IOException)
 import Data.ByteString (ByteString)
-import Data.IntMap.Strict (IntMap, (!), fromList)
 import Data.Maybe (maybeToList)
-import Data.Monoid ((<>))
 import Pipes (Producer, (>->), runEffect)
-import Text.RE.PCRE
-       (RE, SimpleREOptions(MultilineInsensitive, MultilineSensitive),
-        (*=~), anyMatches, compileRegexWith)
+import Text.RE.PCRE (RE, (*=~), anyMatches)
 import Text.RE.Replace (replaceAll)
 
 import Highlight.Common.Color
-       (colorForFileNumber, colorReset, colorVividBlueBold,
-        colorVividCyanBold, colorVividGreenBold, colorVividMagentaBold,
-        colorVividRedBold, colorVividWhiteBold, replaceInRedByteString)
+       (colorForFileNumber, colorReset, colorVividWhiteBold,
+        replaceInRedByteString)
 import Highlight.Common.Error (handleErr)
-import Highlight.Common.Options
-       (IgnoreCase(IgnoreCase, DoNotIgnoreCase), CommonOptions(..),
-        RawRegex(RawRegex))
+import Highlight.Common.Options (CommonOptions(..))
 import Highlight.Common.Pipes (stdinLines)
 import Highlight.Hrep.Monad
        (FilenameHandlingFromFiles(..), HrepM, InputData, Output,
-        compileHighlightRegexWithErr, createInputData, getIgnoreCaseM,
-        getRawRegexM, handleInputData, outputConsumer, runHrepM,
-        throwRegexCompileErr)
+        compileHighlightRegexWithErr, createInputData, handleInputData,
+        outputConsumer, runHrepM)
 
 run :: CommonOptions -> IO ()
 run opts = do

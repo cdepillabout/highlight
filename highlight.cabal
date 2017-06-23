@@ -47,7 +47,6 @@ library
                      , Highlight.Highlight.Run
                      , Highlight.Hrep
                      , Highlight.Hrep.Monad
-                     , Highlight.Hrep.Options
                      , Highlight.Hrep.Run
   build-depends:       base >= 4.5 && < 5
                      , base-compat >= 0.8
