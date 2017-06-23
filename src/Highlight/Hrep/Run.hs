@@ -32,8 +32,6 @@ import Highlight.Hrep.Monad
         getRawRegexM, handleInputData, outputConsumer, runHrepM,
         throwRegexCompileErr)
 
--- TODO: Combine a lot of these functions with the functions in Highlight.Run.
-
 run :: CommonOptions -> IO ()
 run opts = do
   eitherRes <- runHrepM opts prog
