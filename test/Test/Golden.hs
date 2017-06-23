@@ -9,7 +9,6 @@ import Prelude.Compat
 
 import Control.Exception (bracket_, try)
 import Control.Lens ((&), (.~))
-import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO)
 import Data.ByteString (ByteString)
 import Data.ByteString.Lazy (fromStrict)
@@ -21,7 +20,6 @@ import Pipes.Prelude (mapFoldable, toListM)
 import System.Directory
        (Permissions, emptyPermissions, removeFile, setOwnerReadable,
         setOwnerSearchable, setOwnerWritable, setPermissions)
-import System.Exit (ExitCode(ExitSuccess))
 import System.IO (IOMode(WriteMode), hClose, openBinaryFile)
 import System.IO.Error (isPermissionError)
 import Test.Tasty (TestTree, testGroup, withResource)
