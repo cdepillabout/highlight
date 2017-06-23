@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 
@@ -7,7 +6,7 @@ module Test.Golden where
 import Prelude ()
 import Prelude.Compat
 
-import Control.Exception (bracket_, try)
+import Control.Exception (try)
 import Control.Lens ((&), (.~))
 import Control.Monad.IO.Class (MonadIO)
 import Data.ByteString (ByteString)
@@ -15,7 +14,7 @@ import Data.ByteString.Lazy (fromStrict)
 import qualified Data.ByteString.Lazy as LByteString
 import Data.Foldable (fold)
 import Data.Monoid ((<>))
-import Pipes (Pipe, Producer, (>->), each)
+import Pipes (Pipe, Producer, (>->))
 import Pipes.Prelude (mapFoldable, toListM)
 import System.Directory
        (Permissions, emptyPermissions, removeFile, setOwnerReadable,
