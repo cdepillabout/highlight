@@ -18,14 +18,12 @@ import Data.Foldable (fold)
 import Data.Monoid ((<>))
 import Pipes (Pipe, Producer, (>->), each)
 import Pipes.Prelude (mapFoldable, toListM)
-import System.Directory (removePathForcibly)
+import System.Directory
+       (Permissions, emptyPermissions, removeFile, setOwnerReadable,
+        setOwnerSearchable, setOwnerWritable, setPermissions)
 import System.Exit (ExitCode(ExitSuccess))
 import System.IO (IOMode(WriteMode), hClose, openBinaryFile)
 import System.IO.Error (isPermissionError)
-#ifdef mingw32_HOST_OS
-#else
-import System.Posix (nullFileMode, setFileMode)
-#endif
 import System.Process (readProcessWithExitCode)
 import Test.Tasty (TestTree, testGroup, withResource)
 import Test.Tasty.Golden (goldenVsString)
@@ -134,26 +132,40 @@ goldenTests =
 
 createUnreadableFile :: IO ()
 createUnreadableFile = do
-#ifdef mingw32_HOST_OS
-  error "not yet implemented on Windows.  Please send a PR."
-#else
   eitherHandle <- try $ openBinaryFile unreadableFilePath WriteMode
   case eitherHandle of
     Right handle -> do
       hClose handle
-      setFileMode unreadableFilePath nullFileMode
+      makeFileUnreadable unreadableFilePath
     Left ioerr
       | isPermissionError ioerr ->
         -- assume that the file already exists, and just try to make sure that
         -- the permissions are null
-        setFileMode unreadableFilePath nullFileMode
+        makeFileUnreadable unreadableFilePath
       | otherwise ->
         -- we shouldn't have gotten an error here, so just rethrow it
         ioError ioerr
-#endif
+
+makeFileUnreadable :: FilePath -> IO ()
+makeFileUnreadable filePath = do
+  setPermissions filePath emptyPermissions
+
+makeFileReadable :: FilePath -> IO ()
+makeFileReadable filePath =
+  setPermissions filePath fullPermissions
+  where
+    fullPermissions :: Permissions
+    fullPermissions =
+      setOwnerWritable True .
+      setOwnerSearchable True .
+      setOwnerReadable True $
+      emptyPermissions
 
 deleteUnreadableFile :: IO ()
-deleteUnreadableFile = removePathForcibly unreadableFilePath
+deleteUnreadableFile = do
+  makeFileReadable unreadableFilePath
+  eitherRes <- try $ removeFile unreadableFilePath
+  either ioError return eitherRes
 
 unreadableFilePath :: FilePath
 unreadableFilePath = "test/golden/test-files/dir2/unreadable-file"

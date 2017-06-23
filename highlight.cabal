@@ -54,6 +54,7 @@ library
                      , ansi-terminal >= 0.6
                      , bytestring >= 0.9
                      , containers >= 0.5
+                     , directory >= 1.2
                      , filepath >= 1
                      , lens >= 3
                      , mtl >= 2.0
@@ -112,7 +113,7 @@ test-suite highlight-test
   build-depends:       base
                      , base-compat
                      , bytestring
-                     , directory >= 1.2.7
+                     , directory
                      , highlight
                      , lens
                      , pipes

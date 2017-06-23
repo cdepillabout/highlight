@@ -17,14 +17,9 @@ import GHC.IO.Exception
         ioe_type)
 import Pipes (Consumer', Producer, await, each, yield)
 import qualified Pipes.Prelude as Pipes
-import Pipes.Safe (MonadSafe, bracket)
+import System.Directory (getDirectoryContents)
 import System.FilePath ((</>))
 import System.IO (Handle, stderr, stdin)
-#ifdef mingw32_HOST_OS
-#else
-import System.Posix.Directory
-       (DirStream, closeDirStream, openDirStream, readDirStream)
-#endif
 
 import Highlight.Common.Util
        (closeHandleIfEOFOrThrow, openFilePathForReading)
@@ -96,37 +91,19 @@ stderrConsumer = go
 --
 -- Throws an 'IOException' if the directory is not readable or (on Windows) if
 -- the directory is actually a reparse point.
-childOf :: MonadSafe m => FilePath -> Producer FilePath m ()
+--
+-- TODO: This could be rewritten to be faster by using the Windows- and
+-- Linux-specific functions to only read one file from a directory at a time
+-- like the actual
+-- <https://hackage.haskell.org/package/dirstream-1.0.3/docs/Data-DirStream.html#v:childOf childOf>
+-- function.
+childOf :: MonadIO m => FilePath -> Producer FilePath m ()
 childOf path = do
-#ifdef mingw32_HOST_OS
-  -- reparse <- liftIO $ fmap reparsePoint $ Win32.getFileAttributes path
-  -- when (canRead && not reparse) $
-  --     bracket
-  --         (liftIO $ Win32.findFirstFile (F.encodeString (path </> "*")))
-  --         (\(h, _) -> liftIO $ Win32.findClose h)
-  --         $ \(h, fdat) -> do
-  --             let loop = do
-  --                     file' <- liftIO $ Win32.getFindDataFileName fdat
-  --                     let file = F.decodeString file'
-  --                     when (file' /= "." && file' /= "..") $
-  --                         yield (path </> file)
-  --                     more  <- liftIO $ Win32.findNextFile h fdat
-  --                     when more loop
-  --             loop
-	error "Not implemented yet on Windows. Please send PR."
-#else
-  bracket (liftIO $ openDirStream path) (liftIO . closeDirStream) go
+  files <- liftIO $ getDirectoryContents path
+  let filteredFiles = filter isNormalFile files
+      fullFiles = fmap (path </>) filteredFiles
+  each fullFiles
   where
-    go :: MonadIO m => DirStream -> Producer FilePath m ()
-    go dirp = loop
-      where
-        loop :: MonadIO m => Producer FilePath m ()
-        loop = do
-          file <- liftIO $ readDirStream dirp
-          case file of
-            [] -> return ()
-            _  -> do
-              when (file /= "." && file /= "..") . yield $ path </> file
-              loop
-#endif
+    isNormalFile :: FilePath -> Bool
+    isNormalFile file = file /= "." && file /= ".."
 {-# INLINABLE childOf #-}

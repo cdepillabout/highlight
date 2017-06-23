@@ -129,9 +129,8 @@ produerForSingleFile recursive = go
         Left fileIOErr ->
           if recursive == Recursive
             then do
-              let producer = childOf filePath
-                  lIO = runSafeT $ toListM producer
-              eitherFileList <- liftIO (try lIO)
+              let fileListM = toListM $ childOf filePath
+              eitherFileList <- liftIO $ try fileListM
               case eitherFileList of
                 Left dirIOErr -> do
                   yield (fileOrigin, Left (fileIOErr, Just dirIOErr))
