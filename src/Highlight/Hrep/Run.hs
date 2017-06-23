@@ -18,9 +18,9 @@ import Text.RE.PCRE
 import Text.RE.Replace (replaceAll)
 
 import Highlight.Common.Color
-       (colorReset, colorVividBlueBold, colorVividCyanBold,
-        colorVividGreenBold, colorVividMagentaBold, colorVividRedBold,
-        colorVividWhiteBold)
+       (colorForFileNumber, colorReset, colorVividBlueBold,
+        colorVividCyanBold, colorVividGreenBold, colorVividMagentaBold,
+        colorVividRedBold, colorVividWhiteBold, replaceInRedByteString)
 import Highlight.Common.Error (handleErr)
 import Highlight.Common.Options
        (IgnoreCase(IgnoreCase, DoNotIgnoreCase), CommonOptions(..),
@@ -125,26 +125,6 @@ highlightMatchInRed regex input =
   in if didMatch
        then Just $ replaceAll replaceInRedByteString matches
        else Nothing
-
-colorForFileNumber :: Int -> ByteString
-colorForFileNumber num = allColorsMap ! (num `mod` allColorsLength)
-
-allColorsMap :: IntMap ByteString
-allColorsMap = fromList $ zip [0..] allColorsList
-
-allColorsLength :: Int
-allColorsLength = length allColorsList
-
-allColorsList :: [ByteString]
-allColorsList =
-  [ colorVividBlueBold
-  , colorVividGreenBold
-  , colorVividCyanBold
-  , colorVividMagentaBold
-  ]
-
-replaceInRedByteString :: ByteString
-replaceInRedByteString = colorVividRedBold <> "$0" <> colorReset
 
 compileHighlightRegexWithErr :: HrepM RE
 compileHighlightRegexWithErr = do

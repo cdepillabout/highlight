@@ -23,9 +23,9 @@ import Text.RE.PCRE
 import Text.RE.Replace (replaceAll)
 
 import Highlight.Common.Color
-       (colorReset, colorVividBlueBold, colorVividCyanBold,
-        colorVividGreenBold, colorVividMagentaBold, colorVividRedBold,
-        colorVividWhiteBold)
+       (colorForFileNumber, colorReset, colorVividBlueBold,
+        colorVividCyanBold, colorVividGreenBold, colorVividMagentaBold,
+        colorVividRedBold, colorVividWhiteBold, replaceInRedByteString)
 import Highlight.Common.Error (handleErr)
 import Highlight.Common.Pipes
        (fromHandleLines, stderrConsumer, stdinLines)
@@ -92,7 +92,7 @@ handleStdinInput regex FromStdinParseFilenameFromGrep input = do
 formatLineWithFilename
   :: RE -> Int -> ByteString -> ByteString -> [ByteString]
 formatLineWithFilename regex fileNumber filePath input =
-  [colorForFileNumber fileNumber
+  [ colorForFileNumber fileNumber
   , filePath
   , colorVividWhiteBold
   ,  ": "
@@ -130,26 +130,6 @@ highlightMatchInRed :: RE -> ByteString -> ByteString
 highlightMatchInRed regex input =
   let matches = input *=~ regex
   in replaceAll replaceInRedByteString matches
-
-colorForFileNumber :: Int -> ByteString
-colorForFileNumber num = allColorsMap ! (num `mod` allColorsLength)
-
-allColorsMap :: IntMap ByteString
-allColorsMap = fromList $ zip [0..] allColorsList
-
-allColorsLength :: Int
-allColorsLength = length allColorsList
-
-allColorsList :: [ByteString]
-allColorsList =
-  [ colorVividBlueBold
-  , colorVividGreenBold
-  , colorVividCyanBold
-  , colorVividMagentaBold
-  ]
-
-replaceInRedByteString :: ByteString
-replaceInRedByteString = colorVividRedBold <> "$0" <> colorReset
 
 compileHighlightRegexWithErr :: HighlightM RE
 compileHighlightRegexWithErr = do

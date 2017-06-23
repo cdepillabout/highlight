@@ -6,9 +6,36 @@ import Prelude ()
 import Prelude.Compat
 
 import Data.ByteString.Char8 (ByteString, pack)
+import Data.IntMap.Strict (IntMap, (!), fromList)
+import Data.Monoid ((<>))
 import System.Console.ANSI
        (Color(..), ColorIntensity(..), ConsoleIntensity(..),
         ConsoleLayer(..), SGR(..), setSGRCode)
+
+------------------------
+-- Application Colors --
+------------------------
+
+colorForFileNumber :: Int -> ByteString
+colorForFileNumber num = allColorsMap ! (num `mod` allColorsLength)
+
+allColorsMap :: IntMap ByteString
+allColorsMap = fromList $ zip [0..] allColorsList
+
+allColorsLength :: Int
+allColorsLength = length allColorsList
+
+allColorsList :: [ByteString]
+allColorsList =
+  [ colorVividBlueBold
+  , colorVividGreenBold
+  , colorVividCyanBold
+  , colorVividMagentaBold
+  ]
+
+replaceInRedByteString :: ByteString
+replaceInRedByteString = colorVividRedBold <> "$0" <> colorReset
+
 
 -----------------------
 -- Vivid Bold Colors --
