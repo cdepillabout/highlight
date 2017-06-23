@@ -106,9 +106,7 @@ getFileOutputProducer filePath = do
     Left ioerr ->
       error $
         "ERROR: following error occured when trying to read \"" <>
-        grepOutputTestFile <>
-        "\": " <>
-        show ioerr
+        filePath <> "\": " <> show ioerr
     Right producer -> return producer
 
 testStderrAndStdout
@@ -235,17 +233,14 @@ testHighlightFromGrep =
       -> (forall m. Monad m => Pipe Output ByteString m ())
       -> IO LByteString.ByteString
     go opts outputPipe = do
+      -- This is the output file from @grep@ to use for the test
+      -- 'testHighlightFromGrep'.
+      --
+      -- This file was created with the following command:
+      -- > $ grep --recursive and 'test/golden/test-files/dir1'
+      let grepOutputTestFile = "test/golden/test-files/from-grep"
       grepOutputProducer <- getFileOutputProducer grepOutputTestFile
       runHighlightTestWithStdin opts grepOutputProducer outputPipe
-
--- | This is the output file from @grep@ to use for the test
--- 'testHighlightFromGrep'.
---
--- This file was created with the following command:
---
--- > $ grep --recursive and 'test/golden/test-files/dir1'
-grepOutputTestFile :: FilePath
-grepOutputTestFile = "test/golden/test-files/from-grep"
 
 ----------------
 -- Hrep Tests --
