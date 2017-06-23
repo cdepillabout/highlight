@@ -24,7 +24,6 @@ import System.Directory
 import System.Exit (ExitCode(ExitSuccess))
 import System.IO (IOMode(WriteMode), hClose, openBinaryFile)
 import System.IO.Error (isPermissionError)
-import System.Process (readProcessWithExitCode)
 import Test.Tasty (TestTree, testGroup, withResource)
 import Test.Tasty.Golden (goldenVsString)
 
@@ -34,7 +33,6 @@ import Highlight.Common.Options
         defaultCommonOptions, ignoreCaseLens, inputFilenamesLens,
         rawRegexLens, recursiveLens)
 import Highlight.Common.Pipes (fromFileLines, stdinLines)
-import Highlight.Common.Util (convertStringToRawByteString)
 import Highlight.Highlight.Monad (HighlightM, runHighlightM)
 import Highlight.Highlight.Options
        (ColorGrepFilenames(ColorGrepFilenames), Options,
