@@ -14,20 +14,14 @@ import Control.Exception (IOException, try)
 import Control.Lens (view)
 import Control.Monad.Except (ExceptT, MonadError, runExceptT, throwError)
 import Control.Monad.IO.Class (MonadIO(liftIO))
-import Control.Monad.Reader (MonadReader, ReaderT, ask, reader, runReaderT)
-import Control.Monad.State (MonadState, StateT, evalStateT, get, put)
-import Control.Monad.Trans.Class (lift)
+import Control.Monad.Reader (MonadReader, ReaderT, runReaderT)
+import Control.Monad.State (MonadState, StateT, evalStateT)
 import Data.ByteString (ByteString)
 import Data.List (sort)
-import Data.List.NonEmpty (NonEmpty((:|)))
-import Data.Monoid ((<>))
 import Pipes
-       (Consumer, Effect, Pipe, Producer, (>->), await, each, for, next,
-        runEffect, yield)
+       (Consumer, Producer, (>->), await, each, for, next, yield)
 import Pipes.ByteString (stdout)
 import Pipes.Prelude (toListM)
-import Pipes.Safe (runSafeT)
-import System.IO (stdin)
 import Text.RE.PCRE
        (RE, SimpleREOptions(MultilineInsensitive, MultilineSensitive),
         compileRegexWith)
@@ -39,10 +33,8 @@ import Highlight.Common.Options
         HasRawRegex(rawRegexLens), IgnoreCase(DoNotIgnoreCase, IgnoreCase),
         InputFilename, RawRegex(RawRegex), Recursive(Recursive))
 import Highlight.Common.Pipes
-       (childOf, fromHandleLines, numberedProducer, stderrConsumer)
-import Highlight.Common.Util
-       (combineApplicatives, convertStringToRawByteString,
-        openFilePathForReading)
+       (childOf, fromHandleLines, stderrConsumer)
+import Highlight.Common.Util (openFilePathForReading)
 
 --------------------------------
 -- The Common Highlight Monad --
@@ -135,15 +127,15 @@ produerForSingleFile recursive = go
               let fileListM = toListM $ childOf filePath
               eitherFileList <- liftIO $ try fileListM
               case eitherFileList of
-                Left dirIOErr -> do
+                Left dirIOErr ->
                   yield (fileOrigin, Left (fileIOErr, Just dirIOErr))
                 Right fileList -> do
                   let sortedFileList = sort fileList
-                  let fileOrigin = fmap FileFoundRecursively sortedFileList
+                  let fileOrigins = fmap FileFoundRecursively sortedFileList
                   let lalas =
                         fmap
                           (produerForSingleFile recursive)
-                          fileOrigin
+                          fileOrigins
                   for (each lalas) id
             else
               yield (fileOrigin, Left (fileIOErr, Nothing))

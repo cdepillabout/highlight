@@ -14,25 +14,13 @@ module Highlight.Highlight.Monad
 import Prelude ()
 import Prelude.Compat
 
-import Control.Exception (IOException, try)
+import Control.Exception (IOException)
 import Control.Lens (view)
-import Control.Monad.Except (ExceptT, MonadError, runExceptT, throwError)
-import Control.Monad.IO.Class (MonadIO)
-import Control.Monad.Reader (MonadReader, ReaderT, ask, reader, runReaderT)
-import Control.Monad.State (MonadState, StateT, evalStateT, get, put)
+import Control.Monad.Reader (MonadReader)
+import Control.Monad.State (MonadState, get, put)
 import Control.Monad.Trans.Class (lift)
 import Data.ByteString (ByteString)
-import Data.List (sort)
-import Data.List.NonEmpty (NonEmpty((:|)))
-import Data.Monoid ((<>))
-import Data.String (IsString)
-import Pipes
-       (Consumer, Effect, Pipe, Producer, (>->), await, each, for, next, runEffect,
-        yield)
-import Pipes.ByteString (stdout)
-import Pipes.Prelude (toListM)
-import Pipes.Safe (runSafeT)
-import System.IO (stdin)
+import Pipes (Pipe, Producer, (>->), await, each, for, yield)
 
 import Highlight.Common.Error (HighlightErr(..))
 import Highlight.Common.Monad
@@ -44,16 +32,13 @@ import Highlight.Common.Monad
         getFilePathFromFileOrigin, getIgnoreCaseM, getInputFilenamesM,
         getRawRegexM, getRecursiveM, outputConsumer, produerForSingleFile,
         runCommonHighlightM, throwRegexCompileErr)
-import Highlight.Common.Pipes
-       (childOf, fromHandleLines, numberedProducer, stderrConsumer)
+import Highlight.Common.Pipes (numberedProducer)
 import Highlight.Common.Util
-       (combineApplicatives, convertStringToRawByteString,
-        openFilePathForReading)
+       (combineApplicatives, convertStringToRawByteString)
 import Highlight.Highlight.Options
        (ColorGrepFilenames(ColorGrepFilenames, DoNotColorGrepFileNames),
-        HasColorGrepFilenames(colorGrepFilenamesLens), IgnoreCase,
-        InputFilename(unInputFilename), Options(..), RawRegex,
-        Recursive(Recursive))
+        HasColorGrepFilenames(colorGrepFilenamesLens),
+        InputFilename(unInputFilename), Options(..))
 
 data FromGrepFilenameState = FromGrepFilenameState
   { fromGrepFilenameStatePrevFileNum :: {-# UNPACK #-} !Int
@@ -111,11 +96,8 @@ createInputData stdinProducer = do
     [] -> do
       let filenameHandling = computeFilenameHandlingFromStdin colorGrepFilenames
       return $ InputDataStdin filenameHandling stdinProducer
-    (file1:files) -> do
-      let lalas =
-            fmap
-              (produerForSingleFile recursive)
-              (file1 :| files)
+    files -> do
+      let lalas = fmap (produerForSingleFile recursive) files
       let fileProducer = foldl1 combineApplicatives lalas
       (filenameHandling, newHighlightFileProducer) <-
         computeFilenameHandlingFromFiles fileProducer

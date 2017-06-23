@@ -13,14 +13,8 @@ module Highlight.Hrep.Monad
 import Prelude ()
 import Prelude.Compat
 
-import Control.Exception (IOException, try)
-import Control.Monad.Except (ExceptT, MonadError, runExceptT, throwError)
-import Control.Monad.IO.Class (MonadIO(liftIO))
-import Control.Monad.Reader (MonadReader, ReaderT, ask, reader, runReaderT)
-import Control.Monad.State (MonadState, StateT, evalStateT, get, put)
-import Control.Monad.Trans.Class (lift)
+import Control.Exception (IOException)
 import Data.ByteString (ByteString)
-import Data.List (sort)
 import Data.List.NonEmpty (NonEmpty((:|)))
 import Pipes (Pipe, Producer, (>->), await, each, for, yield)
 
