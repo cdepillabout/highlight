@@ -9,36 +9,24 @@ import Prelude ()
 import Prelude.Compat
 
 import Control.Exception (IOException)
-import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.State (MonadState)
 import Data.ByteString (ByteString, empty)
 import qualified Data.ByteString.Char8
-import Data.IntMap.Strict (IntMap, (!), fromList)
-import Data.Monoid ((<>))
-import Pipes (Producer, (>->), await, runEffect, yield)
-import System.IO (stdin)
-import Text.RE.PCRE
-       (RE, SimpleREOptions(MultilineInsensitive, MultilineSensitive),
-        (*=~), compileRegexWith)
+import Pipes (Producer, (>->), runEffect)
+import Text.RE.PCRE (RE, (*=~))
 import Text.RE.Replace (replaceAll)
 
 import Highlight.Common.Color
-       (colorForFileNumber, colorReset, colorVividBlueBold,
-        colorVividCyanBold, colorVividGreenBold, colorVividMagentaBold,
-        colorVividRedBold, colorVividWhiteBold, replaceInRedByteString)
+       (colorForFileNumber, colorReset, colorVividWhiteBold,
+        replaceInRedByteString)
 import Highlight.Common.Error (handleErr)
-import Highlight.Common.Pipes
-       (fromHandleLines, stderrConsumer, stdinLines)
+import Highlight.Common.Pipes (stdinLines)
 import Highlight.Highlight.Monad
        (FilenameHandlingFromStdin(..), FilenameHandlingFromFiles(..),
-        FromGrepFilenameState, HighlightM, InputData,
-        Output(OutputStderr, OutputStdout), compileHighlightRegexWithErr,
-        createInputData, getIgnoreCaseM, getRawRegexM, handleInputData,
-        outputConsumer, runHighlightM, throwRegexCompileErr,
-        updateFilename)
-import Highlight.Highlight.Options
-       (IgnoreCase(IgnoreCase, DoNotIgnoreCase), Options(..),
-        RawRegex(RawRegex))
+        FromGrepFilenameState, HighlightM, InputData, Output,
+        compileHighlightRegexWithErr, createInputData, handleInputData,
+        outputConsumer, runHighlightM, updateFilename)
+import Highlight.Highlight.Options (Options(..))
 
 run :: Options -> IO ()
 run opts = do
