@@ -28,13 +28,16 @@ import Pipes.ByteString (stdout)
 import Pipes.Prelude (toListM)
 import Pipes.Safe (runSafeT)
 import System.IO (stdin)
+import Text.RE.PCRE
+       (RE, SimpleREOptions(MultilineInsensitive, MultilineSensitive),
+        compileRegexWith)
 
 import Highlight.Common.Error (HighlightErr(..))
 import Highlight.Common.Options
        (HasIgnoreCase(ignoreCaseLens),
         HasInputFilenames(inputFilenamesLens), HasRecursive(recursiveLens),
-        HasRawRegex(rawRegexLens), IgnoreCase, InputFilename, RawRegex,
-        Recursive(Recursive))
+        HasRawRegex(rawRegexLens), IgnoreCase(DoNotIgnoreCase, IgnoreCase),
+        InputFilename, RawRegex(RawRegex), Recursive(Recursive))
 import Highlight.Common.Pipes
        (childOf, fromHandleLines, numberedProducer, stderrConsumer)
 import Highlight.Common.Util
@@ -194,3 +197,25 @@ computeFilenameHandlingFromFiles producer = do
                 )
         FileFoundRecursively _ ->
           return (PrintFilename, yield (fileOrigin1, a1) *> producer2)
+
+-----------
+-- Regex --
+-----------
+
+compileHighlightRegexWithErr
+  :: (HasIgnoreCase r, HasRawRegex r)
+  => CommonHighlightM r s HighlightErr RE
+compileHighlightRegexWithErr = do
+  ignoreCase <- getIgnoreCaseM
+  rawRegex <- getRawRegexM
+  case compileHighlightRegex ignoreCase rawRegex of
+    Just re -> return re
+    Nothing -> throwRegexCompileErr rawRegex
+
+compileHighlightRegex :: IgnoreCase -> RawRegex -> Maybe RE
+compileHighlightRegex ignoreCase (RawRegex rawRegex) =
+  let simpleREOptions =
+        case ignoreCase of
+          IgnoreCase -> MultilineInsensitive
+          DoNotIgnoreCase -> MultilineSensitive
+  in compileRegexWith simpleREOptions rawRegex

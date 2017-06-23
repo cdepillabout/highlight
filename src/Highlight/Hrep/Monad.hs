@@ -36,10 +36,10 @@ import Highlight.Common.Monad
         FilenameHandlingFromFiles(NoFilename, PrintFilename),
         FileOrigin(FileFoundRecursively, FileSpecifiedByUser),
         FileProducer, Output(OutputStderr, OutputStdout),
-        computeFilenameHandlingFromFiles, getFilePathFromFileOrigin,
-        getIgnoreCaseM, getInputFilenamesM, getRawRegexM, getRecursiveM,
-        outputConsumer, produerForSingleFile, runCommonHighlightM,
-        throwRegexCompileErr)
+        compileHighlightRegexWithErr, computeFilenameHandlingFromFiles,
+        getFilePathFromFileOrigin, getIgnoreCaseM, getInputFilenamesM,
+        getRawRegexM, getRecursiveM, outputConsumer, produerForSingleFile,
+        runCommonHighlightM, throwRegexCompileErr)
 import Highlight.Common.Options
        (CommonOptions, IgnoreCase, InputFilename(unInputFilename),
         RawRegex, Recursive(Recursive))

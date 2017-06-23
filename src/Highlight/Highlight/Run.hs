@@ -32,9 +32,10 @@ import Highlight.Common.Pipes
 import Highlight.Highlight.Monad
        (FilenameHandlingFromStdin(..), FilenameHandlingFromFiles(..),
         FromGrepFilenameState, HighlightM, InputData,
-        Output(OutputStderr, OutputStdout), createInputData,
-        getIgnoreCaseM, getRawRegexM, handleInputData, outputConsumer,
-        runHighlightM, throwRegexCompileErr, updateFilename)
+        Output(OutputStderr, OutputStdout), compileHighlightRegexWithErr,
+        createInputData, getIgnoreCaseM, getRawRegexM, handleInputData,
+        outputConsumer, runHighlightM, throwRegexCompileErr,
+        updateFilename)
 import Highlight.Highlight.Options
        (IgnoreCase(IgnoreCase, DoNotIgnoreCase), Options(..),
         RawRegex(RawRegex))
@@ -130,19 +131,3 @@ highlightMatchInRed :: RE -> ByteString -> ByteString
 highlightMatchInRed regex input =
   let matches = input *=~ regex
   in replaceAll replaceInRedByteString matches
-
-compileHighlightRegexWithErr :: HighlightM RE
-compileHighlightRegexWithErr = do
-  ignoreCase <- getIgnoreCaseM
-  rawRegex <- getRawRegexM
-  case compileHighlightRegex ignoreCase rawRegex of
-    Just re -> return re
-    Nothing -> throwRegexCompileErr rawRegex
-
-compileHighlightRegex :: IgnoreCase -> RawRegex -> Maybe RE
-compileHighlightRegex ignoreCase (RawRegex rawRegex) =
-  let simpleREOptions =
-        case ignoreCase of
-          IgnoreCase -> MultilineInsensitive
-          DoNotIgnoreCase -> MultilineSensitive
-  in compileRegexWith simpleREOptions rawRegex

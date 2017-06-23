@@ -28,8 +28,9 @@ import Highlight.Common.Options
 import Highlight.Common.Pipes (stdinLines)
 import Highlight.Hrep.Monad
        (FilenameHandlingFromFiles(..), HrepM, InputData, Output,
-        createInputData, getIgnoreCaseM, getRawRegexM, handleInputData,
-        outputConsumer, runHrepM, throwRegexCompileErr)
+        compileHighlightRegexWithErr, createInputData, getIgnoreCaseM,
+        getRawRegexM, handleInputData, outputConsumer, runHrepM,
+        throwRegexCompileErr)
 
 -- TODO: Combine a lot of these functions with the functions in Highlight.Run.
 
@@ -88,6 +89,11 @@ handleFileInput regex NoFilename _ _ input =
 handleFileInput regex PrintFilename filePath fileNumber input =
   formatLineWithFilename regex fileNumber filePath input
 
+-- TODO: The filename highlighting doesn't work here when none of the lines of
+-- the file are output.
+--
+-- It would be nice to preprocess the input so that we don't get any lines that
+-- do not match.
 formatLineWithFilename
   :: RE -> Int -> ByteString -> ByteString -> [ByteString]
 formatLineWithFilename regex fileNumber filePath input =
@@ -125,19 +131,3 @@ highlightMatchInRed regex input =
   in if didMatch
        then Just $ replaceAll replaceInRedByteString matches
        else Nothing
-
-compileHighlightRegexWithErr :: HrepM RE
-compileHighlightRegexWithErr = do
-  ignoreCase <- getIgnoreCaseM
-  rawRegex <- getRawRegexM
-  case compileHighlightRegex ignoreCase rawRegex of
-    Just re -> return re
-    Nothing -> throwRegexCompileErr rawRegex
-
-compileHighlightRegex :: IgnoreCase -> RawRegex -> Maybe RE
-compileHighlightRegex ignoreCase (RawRegex rawRegex) =
-  let simpleREOptions =
-        case ignoreCase of
-          IgnoreCase -> MultilineInsensitive
-          DoNotIgnoreCase -> MultilineSensitive
-  in compileRegexWith simpleREOptions rawRegex
