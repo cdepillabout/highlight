@@ -14,7 +14,8 @@ import Foreign.C.Error (Errno(Errno), ePIPE)
 import GHC.IO.Exception
        (IOException(IOError), IOErrorType(ResourceVanished), ioe_errno,
         ioe_type)
-import Pipes (Consumer', Producer, Producer', Proxy, X, await, each, for, yield)
+import Pipes
+       (Consumer', Producer, Producer', Proxy, await, each, yield)
 import qualified Pipes.Prelude as Pipes
 import System.Directory (getDirectoryContents)
 import System.FilePath ((</>))

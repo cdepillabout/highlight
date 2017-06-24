@@ -10,7 +10,7 @@ import Prelude.Compat
 import Control.Exception (IOException)
 import Data.ByteString (ByteString)
 import Data.Maybe (maybeToList)
-import Pipes (Producer, Producer', (>->), runEffect)
+import Pipes (Producer, (>->), runEffect)
 import Text.RE.PCRE (RE, (*=~), anyMatches)
 import Text.RE.Replace (replaceAll)
 

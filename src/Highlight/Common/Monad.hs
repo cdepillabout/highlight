@@ -20,7 +20,7 @@ import Control.Monad.State (MonadState, StateT, evalStateT)
 import Data.ByteString (ByteString)
 import Data.List (sort)
 import Pipes
-       (Consumer, Pipe, Producer, Producer', Proxy, (>->), await, each, for,
+       (Consumer, Pipe, Producer, Producer', (>->), await, each, for,
         next, yield)
 import Pipes.ByteString (stdout)
 import Pipes.Prelude (toListM)
