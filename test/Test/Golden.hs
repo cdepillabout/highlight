@@ -14,7 +14,7 @@ import Data.ByteString.Lazy (fromStrict)
 import qualified Data.ByteString.Lazy as LByteString
 import Data.Foldable (fold)
 import Data.Monoid ((<>))
-import Pipes (Pipe, Producer, Producer', Proxy, (>->))
+import Pipes (Pipe, Producer, (>->))
 import Pipes.Prelude (mapFoldable, toListM)
 import System.Directory
        (Permissions, emptyPermissions, removeFile, setOwnerReadable,
@@ -39,8 +39,7 @@ import Highlight.Hrep.Monad (HrepM, runHrepM)
 import Highlight.Hrep.Run (hrepOutputProducer)
 
 runHighlightTestWithStdin
-  :: forall x' x m.
-     Options
+  :: Options
   -> Producer ByteString HighlightM ()
   -> (forall m. Monad m => Pipe Output ByteString m ())
   -> IO LByteString.ByteString
