@@ -57,14 +57,14 @@ handleInputData
   -> Producer Output HrepM ()
 handleInputData stdinFunc _ _ (InputDataStdin producer) =
   handleInputDataStdin stdinFunc producer
-handleInputData _ handleNonError handleError (InputDataFile filenameHandling fileProducer) = do
+handleInputData _ handleNonError handleError (InputDataFile filenameHandling fileProducer) =
   handleInputDataFile handleNonError handleError filenameHandling fileProducer
 
 handleInputDataStdin
   :: (ByteString -> [ByteString])
   -> Producer ByteString HrepM ()
   -> Producer Output HrepM ()
-handleInputDataStdin f producer = do
+handleInputDataStdin f producer =
   producer >-> addNewline f
   where
     addNewline
@@ -95,7 +95,7 @@ handleInputDataFile
   -> FilenameHandlingFromFiles
   -> FileProducer HrepM ()
   -> Producer Output HrepM ()
-handleInputDataFile handleNonError handleError filenameHandling fileProducer = do
+handleInputDataFile handleNonError handleError filenameHandling fileProducer =
   for (numberedProducer fileProducer) g
   where
     g

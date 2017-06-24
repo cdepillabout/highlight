@@ -95,7 +95,7 @@ handleInputData
   -> Producer Output HighlightM ()
 handleInputData stdinFunc _ _ (InputDataStdin producer) =
   handleInputDataStdin stdinFunc producer
-handleInputData _ handleNonError handleError (InputDataFile filenameHandling fileProducer) = do
+handleInputData _ handleNonError handleError (InputDataFile filenameHandling fileProducer) =
   handleInputDataFile handleNonError handleError filenameHandling fileProducer
 
 handleInputDataStdin
