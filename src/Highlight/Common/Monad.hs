@@ -107,11 +107,6 @@ getFilePathFromFileOrigin :: FileOrigin -> FilePath
 getFilePathFromFileOrigin (FileSpecifiedByUser fp) = fp
 getFilePathFromFileOrigin (FileFoundRecursively fp) = fp
 
-data FileOriginWithHandle
-  = FileOriginWithHandleSuccess !FileOrigin !Handle
-  | FileOriginWithHandleErr !FileOrigin !IOException !(Maybe IOException)
-  deriving (Eq, Show)
-
 createInputData
   :: (HasInputFilenames r, HasRecursive r)
   => Producer ByteString (CommonHighlightM r s e) ()
@@ -129,20 +124,25 @@ createInputData stdinProducer = do
         computeFilenameHandlingFromFiles fileProducer
       return $ InputDataFile filenameHandling newHighlightFileProducer
 
+data FileReader a
+  = FileReaderSuccess !FileOrigin !a
+  | FileReaderErr !FileOrigin !IOException !(Maybe IOException)
+  deriving (Eq, Show)
+
 fileListProducer
   :: forall m.
      MonadIO m
   => Recursive
   -> FileOrigin
-  -> Producer FileOriginWithHandle m ()
+  -> Producer (FileReader Handle) m ()
 fileListProducer recursive = go
   where
-    go :: FileOrigin -> Producer FileOriginWithHandle m ()
+    go :: FileOrigin -> Producer (FileReader Handle) m ()
     go fileOrigin = do
       let filePath = getFilePathFromFileOrigin fileOrigin
       eitherHandle <- openFilePathForReading filePath
       case eitherHandle of
-        Right handle -> yield $ FileOriginWithHandleSuccess fileOrigin handle
+        Right handle -> yield $ FileReaderSuccess fileOrigin handle
         Left fileIOErr ->
           if recursive == Recursive
             then do
@@ -151,7 +151,7 @@ fileListProducer recursive = go
               case eitherFileList of
                 Left dirIOErr ->
                   yield $
-                    FileOriginWithHandleErr fileOrigin fileIOErr (Just dirIOErr)
+                    FileReaderErr fileOrigin fileIOErr (Just dirIOErr)
                 Right fileList -> do
                   let sortedFileList = sort fileList
                   let fileOrigins = fmap FileFoundRecursively sortedFileList
@@ -161,7 +161,7 @@ fileListProducer recursive = go
                           fileOrigins
                   for (each lalas) id
             else
-              yield $ FileOriginWithHandleErr fileOrigin fileIOErr Nothing
+              yield $ FileReaderErr fileOrigin fileIOErr Nothing
 
 -- | TODO: It would be nice to turn this into two functions, one that just gets
 -- a list of all files to read, and one that creates the 'Producer' that
