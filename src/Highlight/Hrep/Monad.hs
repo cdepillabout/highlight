@@ -14,7 +14,6 @@ import Prelude.Compat
 
 import Control.Exception (IOException)
 import Data.ByteString (ByteString)
-import Data.List.NonEmpty (NonEmpty((:|)))
 import Pipes (Pipe, Producer, (>->), await, each, for, yield)
 
 import Highlight.Common.Error (HighlightErr(..))
@@ -54,13 +53,9 @@ createInputData stdinProducer = do
     fmap (FileSpecifiedByUser . unInputFilename) <$> getInputFilenamesM
   recursive <- getRecursiveM
   case inputFilenames of
-    [] -> do
-      return $ InputDataStdin stdinProducer
-    (file1:files) -> do
-      let lalas =
-            fmap
-              (produerForSingleFile recursive)
-              (file1 :| files)
+    [] -> return $ InputDataStdin stdinProducer
+    files -> do
+      let lalas = fmap (produerForSingleFile recursive) files
       let fileProducer = foldl1 combineApplicatives lalas
       (filenameHandling, newHighlightFileProducer) <-
         computeFilenameHandlingFromFiles fileProducer
