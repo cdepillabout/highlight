@@ -14,7 +14,7 @@ import Foreign.C.Error (Errno(Errno), ePIPE)
 import GHC.IO.Exception
        (IOException(IOError), IOErrorType(ResourceVanished), ioe_errno,
         ioe_type)
-import Pipes (Consumer', Producer, await, each, yield)
+import Pipes (Consumer', Producer, Producer', await, each, yield)
 import qualified Pipes.Prelude as Pipes
 import System.Directory (getDirectoryContents)
 import System.FilePath ((</>))
@@ -29,10 +29,10 @@ import Highlight.Common.Util
 -- This function will close the 'Handle' if the end of the file is reached.
 -- However, if an error was thrown while reading input from the 'Handle', the
 -- 'Handle' is not closed.
-fromHandleLines :: forall m. MonadIO m => Handle -> Producer ByteString m ()
+fromHandleLines :: forall m. MonadIO m => Handle -> Producer' ByteString m ()
 fromHandleLines handle = go
   where
-    go :: Producer ByteString m ()
+    go :: Producer' ByteString m ()
     go = do
       eitherLine <- liftIO . try $ hGetLine handle
       case eitherLine of
@@ -40,7 +40,7 @@ fromHandleLines handle = go
         Right line -> yield line *> go
 {-# INLINABLE fromHandleLines #-}
 
-stdinLines :: forall m. MonadIO m => Producer ByteString m ()
+stdinLines :: forall m. MonadIO m => Producer' ByteString m ()
 stdinLines = fromHandleLines stdin
 {-# INLINABLE stdinLines #-}
 
@@ -96,7 +96,7 @@ stderrConsumer = go
 -- like the actual
 -- <https://hackage.haskell.org/package/dirstream-1.0.3/docs/Data-DirStream.html#v:childOf childOf>
 -- function.
-childOf :: MonadIO m => FilePath -> Producer FilePath m ()
+childOf :: MonadIO m => FilePath -> Producer' FilePath m ()
 childOf path = do
   files <- liftIO $ getDirectoryContents path
   let filteredFiles = filter isNormalFile files
