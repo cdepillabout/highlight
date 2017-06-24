@@ -32,10 +32,12 @@ import Highlight.Common.Options
        (HasIgnoreCase(ignoreCaseLens),
         HasInputFilenames(inputFilenamesLens), HasRecursive(recursiveLens),
         HasRawRegex(rawRegexLens), IgnoreCase(DoNotIgnoreCase, IgnoreCase),
-        InputFilename, RawRegex(RawRegex), Recursive(Recursive))
+        InputFilename(unInputFilename), RawRegex(RawRegex),
+        Recursive(Recursive))
 import Highlight.Common.Pipes
        (childOf, fromHandleLines, stderrConsumer)
-import Highlight.Common.Util (openFilePathForReading)
+import Highlight.Common.Util
+       (combineApplicatives, openFilePathForReading)
 
 --------------------------------
 -- The Common Highlight Monad --
@@ -110,6 +112,23 @@ data FileOriginWithHandle
   | FileOriginWithHandleErr !FileOrigin !IOException !(Maybe IOException)
   deriving (Eq, Show)
 
+createInputData
+  :: (HasInputFilenames r, HasRecursive r)
+  => Producer ByteString (CommonHighlightM r s e) ()
+  -> CommonHighlightM r s e (InputData (CommonHighlightM r s e) ())
+createInputData stdinProducer = do
+  inputFilenames <-
+    fmap (FileSpecifiedByUser . unInputFilename) <$> getInputFilenamesM
+  recursive <- getRecursiveM
+  case inputFilenames of
+    [] -> return $ InputDataStdin stdinProducer
+    files -> do
+      let lalas = fmap (produerForSingleFile recursive) files
+      let fileProducer = foldl1 combineApplicatives lalas
+      (filenameHandling, newHighlightFileProducer) <-
+        computeFilenameHandlingFromFiles fileProducer
+      return $ InputDataFile filenameHandling newHighlightFileProducer
+
 fileListProducer
   :: forall m.
      MonadIO m
@@ -132,10 +151,7 @@ fileListProducer recursive = go
               case eitherFileList of
                 Left dirIOErr ->
                   yield $
-                    FileOriginWithHandleErr
-                      fileOrigin
-                      fileIOErr
-                      (Just dirIOErr)
+                    FileOriginWithHandleErr fileOrigin fileIOErr (Just dirIOErr)
                 Right fileList -> do
                   let sortedFileList = sort fileList
                   let fileOrigins = fmap FileFoundRecursively sortedFileList
@@ -182,6 +198,10 @@ produerForSingleFile recursive = go
                   for (each lalas) id
             else
               yield (fileOrigin, Left (fileIOErr, Nothing))
+
+data InputData m a
+  = InputDataStdin !(Producer ByteString m a)
+  | InputDataFile !FilenameHandlingFromFiles !(FileProducer m a)
 
 
 data Output

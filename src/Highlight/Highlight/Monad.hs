@@ -26,18 +26,17 @@ import Highlight.Common.Monad
        (CommonHighlightM,
         FilenameHandlingFromFiles(NoFilename, PrintFilename),
         FileOrigin(FileFoundRecursively, FileSpecifiedByUser),
-        FileProducer, Output(OutputStderr, OutputStdout),
-        compileHighlightRegexWithErr, computeFilenameHandlingFromFiles,
+        FileProducer, InputData(InputDataFile, InputDataStdin),
+        Output(OutputStderr, OutputStdout), compileHighlightRegexWithErr,
+        computeFilenameHandlingFromFiles, createInputData,
         getFilePathFromFileOrigin, getIgnoreCaseM, getInputFilenamesM,
         getRawRegexM, getRecursiveM, outputConsumer, produerForSingleFile,
         runCommonHighlightM, throwRegexCompileErr)
 import Highlight.Common.Pipes (numberedProducer)
-import Highlight.Common.Util
-       (combineApplicatives, convertStringToRawByteString)
+import Highlight.Common.Util (convertStringToRawByteString)
 import Highlight.Highlight.Options
        (ColorGrepFilenames(ColorGrepFilenames, DoNotColorGrepFileNames),
-        HasColorGrepFilenames(colorGrepFilenamesLens),
-        InputFilename(unInputFilename), Options(..))
+        HasColorGrepFilenames(colorGrepFilenamesLens), Options(..))
 
 data FromGrepFilenameState = FromGrepFilenameState
   { fromGrepFilenameStatePrevFileNum :: {-# UNPACK #-} !Int
@@ -83,33 +82,6 @@ getColorGrepFilenamesM = view colorGrepFilenamesLens
 -- Pipes --
 -----------
 
-createInputData
-  :: Producer ByteString HighlightM ()
-  -> HighlightM (InputData HighlightM ())
-createInputData stdinProducer = do
-  inputFilenames <-
-    fmap (FileSpecifiedByUser . unInputFilename) <$> getInputFilenamesM
-  recursive <- getRecursiveM
-  colorGrepFilenames <- getColorGrepFilenamesM
-  case inputFilenames of
-    [] -> do
-      let filenameHandling = computeFilenameHandlingFromStdin colorGrepFilenames
-      return $ InputDataStdin filenameHandling stdinProducer
-    files -> do
-      let lalas = fmap (produerForSingleFile recursive) files
-      let fileProducer = foldl1 combineApplicatives lalas
-      (filenameHandling, newHighlightFileProducer) <-
-        computeFilenameHandlingFromFiles fileProducer
-      return $ InputDataFile filenameHandling newHighlightFileProducer
-
-data InputData m a
-  = InputDataStdin
-      !FilenameHandlingFromStdin
-      !(Producer ByteString m a)
-  | InputDataFile
-      !FilenameHandlingFromFiles
-      !(FileProducer m a)
-
 handleInputData
   :: (FilenameHandlingFromStdin -> ByteString -> HighlightM [ByteString])
   -> ( FilenameHandlingFromFiles
@@ -121,8 +93,8 @@ handleInputData
   -> (ByteString -> IOException -> Maybe IOException -> [ByteString])
   -> InputData HighlightM ()
   -> Producer Output HighlightM ()
-handleInputData stdinFunc _ _ (InputDataStdin filenameHandling producer) =
-  handleInputDataStdin stdinFunc filenameHandling producer
+handleInputData stdinFunc _ _ (InputDataStdin producer) =
+  handleInputDataStdin stdinFunc producer
 handleInputData _ handleNonError handleError (InputDataFile filenameHandling fileProducer) = do
   handleInputDataFile handleNonError handleError filenameHandling fileProducer
 
@@ -131,10 +103,10 @@ handleInputDataStdin
         -> ByteString
         -> HighlightM [ByteString]
      )
-  -> FilenameHandlingFromStdin
   -> Producer ByteString HighlightM ()
   -> Producer Output HighlightM ()
-handleInputDataStdin f filenameHandling producer =
+handleInputDataStdin f producer = do
+  filenameHandling <- filenameHandlingFromStdinM
   producer >-> addNewline (f filenameHandling)
   where
     addNewline
@@ -221,3 +193,9 @@ computeFilenameHandlingFromStdin
   :: ColorGrepFilenames -> FilenameHandlingFromStdin
 computeFilenameHandlingFromStdin ColorGrepFilenames = FromStdinParseFilenameFromGrep
 computeFilenameHandlingFromStdin DoNotColorGrepFileNames = FromStdinNoFilename
+
+filenameHandlingFromStdinM
+  :: (HasColorGrepFilenames r, MonadReader r m)
+  => m FilenameHandlingFromStdin
+filenameHandlingFromStdinM =
+  fmap computeFilenameHandlingFromStdin getColorGrepFilenamesM

@@ -21,16 +21,15 @@ import Highlight.Common.Monad
        (CommonHighlightM,
         FilenameHandlingFromFiles(NoFilename, PrintFilename),
         FileOrigin(FileFoundRecursively, FileSpecifiedByUser),
-        FileProducer, Output(OutputStderr, OutputStdout),
-        compileHighlightRegexWithErr, computeFilenameHandlingFromFiles,
+        FileProducer, InputData(InputDataFile, InputDataStdin),
+        Output(OutputStderr, OutputStdout), compileHighlightRegexWithErr,
+        computeFilenameHandlingFromFiles, createInputData,
         getFilePathFromFileOrigin, getIgnoreCaseM, getInputFilenamesM,
         getRawRegexM, getRecursiveM, outputConsumer, produerForSingleFile,
         runCommonHighlightM, throwRegexCompileErr)
-import Highlight.Common.Options
-       (CommonOptions, InputFilename(unInputFilename))
+import Highlight.Common.Options (CommonOptions)
 import Highlight.Common.Pipes (numberedProducer)
-import Highlight.Common.Util
-       (combineApplicatives, convertStringToRawByteString)
+import Highlight.Common.Util (convertStringToRawByteString)
 
 --------------------
 -- The Hrep Monad --
@@ -44,28 +43,6 @@ runHrepM opts = runCommonHighlightM opts ()
 -----------
 -- Pipes --
 -----------
-
-createInputData
-  :: Producer ByteString HrepM ()
-  -> HrepM (InputData HrepM ())
-createInputData stdinProducer = do
-  inputFilenames <-
-    fmap (FileSpecifiedByUser . unInputFilename) <$> getInputFilenamesM
-  recursive <- getRecursiveM
-  case inputFilenames of
-    [] -> return $ InputDataStdin stdinProducer
-    files -> do
-      let lalas = fmap (produerForSingleFile recursive) files
-      let fileProducer = foldl1 combineApplicatives lalas
-      (filenameHandling, newHighlightFileProducer) <-
-        computeFilenameHandlingFromFiles fileProducer
-      return $ InputDataFile filenameHandling newHighlightFileProducer
-
-data InputData m a
-  = InputDataStdin (Producer ByteString m a)
-  | InputDataFile
-      FilenameHandlingFromFiles
-      (FileProducer m a)
 
 handleInputData
   :: (ByteString -> [ByteString])
