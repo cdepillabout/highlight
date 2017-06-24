@@ -22,6 +22,7 @@ import Pipes
        (Consumer, Producer, (>->), await, each, for, next, yield)
 import Pipes.ByteString (stdout)
 import Pipes.Prelude (toListM)
+import System.IO (Handle)
 import Text.RE.PCRE
        (RE, SimpleREOptions(MultilineInsensitive, MultilineSensitive),
         compileRegexWith)
@@ -103,6 +104,48 @@ data FileOrigin
 getFilePathFromFileOrigin :: FileOrigin -> FilePath
 getFilePathFromFileOrigin (FileSpecifiedByUser fp) = fp
 getFilePathFromFileOrigin (FileFoundRecursively fp) = fp
+
+data FileOriginWithHandle
+  = FileOriginWithHandleSuccess !FileOrigin !Handle
+  | FileOriginWithHandleErr !FileOrigin !IOException !(Maybe IOException)
+  deriving (Eq, Show)
+
+fileListProducer
+  :: forall m.
+     MonadIO m
+  => Recursive
+  -> FileOrigin
+  -> Producer FileOriginWithHandle m ()
+fileListProducer recursive = go
+  where
+    go :: FileOrigin -> Producer FileOriginWithHandle m ()
+    go fileOrigin = do
+      let filePath = getFilePathFromFileOrigin fileOrigin
+      eitherHandle <- openFilePathForReading filePath
+      case eitherHandle of
+        Right handle -> yield $ FileOriginWithHandleSuccess fileOrigin handle
+        Left fileIOErr ->
+          if recursive == Recursive
+            then do
+              let fileListM = toListM $ childOf filePath
+              eitherFileList <- liftIO $ try fileListM
+              case eitherFileList of
+                Left dirIOErr ->
+                  yield $
+                    FileOriginWithHandleErr
+                      fileOrigin
+                      fileIOErr
+                      (Just dirIOErr)
+                Right fileList -> do
+                  let sortedFileList = sort fileList
+                  let fileOrigins = fmap FileFoundRecursively sortedFileList
+                  let lalas =
+                        fmap
+                          (fileListProducer recursive)
+                          fileOrigins
+                  for (each lalas) id
+            else
+              yield $ FileOriginWithHandleErr fileOrigin fileIOErr Nothing
 
 -- | TODO: It would be nice to turn this into two functions, one that just gets
 -- a list of all files to read, and one that creates the 'Producer' that
