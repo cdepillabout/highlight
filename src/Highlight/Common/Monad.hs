@@ -4,6 +4,7 @@
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RankNTypes #-}
 
 module Highlight.Common.Monad where
 
@@ -19,9 +20,11 @@ import Control.Monad.State (MonadState, StateT, evalStateT)
 import Data.ByteString (ByteString)
 import Data.List (sort)
 import Pipes
-       (Consumer, Producer, (>->), await, each, for, next, yield)
+       (Consumer, Pipe, Producer, Producer', Proxy, (>->), await, each, for,
+        next, yield)
 import Pipes.ByteString (stdout)
 import Pipes.Prelude (toListM)
+import qualified Pipes.Prelude as Pipes
 import System.IO (Handle)
 import Text.RE.PCRE
        (RE, SimpleREOptions(MultilineInsensitive, MultilineSensitive),
@@ -108,7 +111,8 @@ getFilePathFromFileOrigin (FileSpecifiedByUser fp) = fp
 getFilePathFromFileOrigin (FileFoundRecursively fp) = fp
 
 createInputData
-  :: (HasInputFilenames r, HasRecursive r)
+  :: forall r s e.
+     (HasInputFilenames r, HasRecursive r)
   => Producer ByteString (CommonHighlightM r s e) ()
   -> CommonHighlightM r s e (InputData (CommonHighlightM r s e) ())
 createInputData stdinProducer = do
@@ -129,15 +133,32 @@ data FileReader a
   | FileReaderErr !FileOrigin !IOException !(Maybe IOException)
   deriving (Eq, Show)
 
+fileReaderHandleToLine
+  :: forall m.
+     MonadIO m
+  => Producer' (FileReader Handle) m () -> Producer' (FileReader ByteString) m ()
+fileReaderHandleToLine producer = producer >-> pipe
+  where
+    pipe :: Pipe (FileReader Handle) (FileReader ByteString) m ()
+    pipe = do
+      fileReaderHandle <- await
+      case fileReaderHandle of
+        FileReaderErr fileOrigin fileErr dirErr ->
+          yield $ FileReaderErr fileOrigin fileErr dirErr
+        FileReaderSuccess fileOrigin handle -> do
+          let linesProducer = fromHandleLines handle
+          linesProducer >-> Pipes.map (FileReaderSuccess fileOrigin)
+      pipe
+
 fileListProducer
   :: forall m.
      MonadIO m
   => Recursive
   -> FileOrigin
-  -> Producer (FileReader Handle) m ()
+  -> Producer' (FileReader Handle) m ()
 fileListProducer recursive = go
   where
-    go :: FileOrigin -> Producer (FileReader Handle) m ()
+    go :: FileOrigin -> Producer' (FileReader Handle) m ()
     go fileOrigin = do
       let filePath = getFilePathFromFileOrigin fileOrigin
       eitherHandle <- openFilePathForReading filePath

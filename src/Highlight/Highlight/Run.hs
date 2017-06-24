@@ -12,7 +12,7 @@ import Control.Exception (IOException)
 import Control.Monad.State (MonadState)
 import Data.ByteString (ByteString, empty)
 import qualified Data.ByteString.Char8
-import Pipes (Producer, (>->), runEffect)
+import Pipes (Producer, Producer', Proxy, (>->), runEffect)
 import Text.RE.PCRE (RE, (*=~))
 import Text.RE.Replace (replaceAll)
 

@@ -14,7 +14,7 @@ import Foreign.C.Error (Errno(Errno), ePIPE)
 import GHC.IO.Exception
        (IOException(IOError), IOErrorType(ResourceVanished), ioe_errno,
         ioe_type)
-import Pipes (Consumer', Producer, Producer', await, each, yield)
+import Pipes (Consumer', Producer, Producer', Proxy, X, await, each, for, yield)
 import qualified Pipes.Prelude as Pipes
 import System.Directory (getDirectoryContents)
 import System.FilePath ((</>))
@@ -45,10 +45,10 @@ stdinLines = fromHandleLines stdin
 {-# INLINABLE stdinLines #-}
 
 fromFileLines
-  :: forall m n.
+  :: forall m n x' x.
      (MonadIO m, MonadIO n)
   => FilePath
-  -> m (Either IOException (Producer ByteString n ()))
+  -> m (Either IOException (Proxy x' x () ByteString n ()))
 fromFileLines filePath = do
   eitherHandle <- openFilePathForReading filePath
   case eitherHandle of
