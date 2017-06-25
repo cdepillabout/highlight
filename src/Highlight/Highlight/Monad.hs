@@ -134,6 +134,8 @@ handleInputData' stdinF nonErrF errF (InputData' nameHandling producer) = do
                 case fileReader of
                   FileReaderSuccess stdinFileOrigin line -> do
                     outByteStrings <- lift $ stdinF stdinHandling line
+                    -- TODO: Since this is exactly the same as the code below,
+                    -- maybe try to factor it out.
                     case outByteStrings of
                       [] -> return (maybePrevFileOrigin, prevColorNum)
                       (_:_) -> do
