@@ -128,9 +128,35 @@ createInputData stdinProducer = do
         computeFilenameHandlingFromFiles fileProducer
       return $ InputDataFile filenameHandling newHighlightFileProducer
 
+createInputData'
+  :: forall m.
+     MonadIO m
+  => Recursive
+  -> [InputFilename]
+  -> Producer ByteString m ()
+  -> m (InputData' m ())
+createInputData' recursive inputFilenames stdinProducer = do
+  let fileOrigins = FileSpecifiedByUser . unInputFilename <$> inputFilenames
+  case fileOrigins of
+    [] -> return $ InputDataStdin' stdinProducer
+    _ -> do
+      let fileListProducers = fmap (fileListProducer recursive) fileOrigins
+          fileProducer = foldl1 combineApplicatives fileListProducers
+      (filenameHandling, newFileProducer) <-
+        computeFilenameHandlingFromFiles' fileProducer
+      let fileLineProducer = fileReaderHandleToLine newFileProducer
+      return $ InputDataFile' filenameHandling fileLineProducer
+
 data InputData m a
   = InputDataStdin !(Producer ByteString m a)
   | InputDataFile !FilenameHandlingFromFiles !(FileProducer m a)
+
+data InputData' m a
+  = InputDataStdin' !(Producer ByteString m a)
+  | InputDataFile'
+      !FilenameHandlingFromFiles
+      !(Producer (FileReader ByteString) m ())
+
 
 data FileReader a
   = FileReaderSuccess !FileOrigin !a
