@@ -125,7 +125,7 @@ handleInputData' stdinF nonErrF errF (InputData' nameHandling producer) = do
           fileReader <- await
           let maybeFilePath = getFilePathFromFileReader fileReader
               fileOrigin = getFileOriginFromFileReader fileReader
-              currColorNum =
+              nextColorNum =
                 getColorNum maybePrevFileOrigin prevColorNum fileOrigin
           (newFileOrigin, newColorNum) <-
             case maybeFilePath of
@@ -164,10 +164,10 @@ handleInputData' stdinF nonErrF errF (InputData' nameHandling producer) = do
                           nonErrF
                             nameHandling
                             byteStringFilePath
-                            currColorNum
+                            nextColorNum
                             inputLine
                     case outByteStrings of
-                      [] -> return (maybePrevFileOrigin, currColorNum)
+                      [] -> return (maybePrevFileOrigin, prevColorNum)
                       (_:_) -> do
                         sendToStdoutWithNewLine outByteStrings
                         return $
