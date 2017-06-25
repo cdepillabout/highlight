@@ -23,15 +23,15 @@ import Pipes (Pipe, Producer, (>->), await, each, for, yield)
 
 import Highlight.Common.Error (HighlightErr(..))
 import Highlight.Common.Monad
-       (CommonHighlightM,
-        FilenameHandlingFromFiles(NoFilename, PrintFilename),
-        FileOrigin(FileFoundRecursively, FileSpecifiedByUser),
-        FileProducer, InputData(InputDataFile, InputDataStdin),
-        Output(OutputStderr, OutputStdout), compileHighlightRegexWithErr,
-        computeFilenameHandlingFromFiles, createInputData,
-        getFilePathFromFileOrigin, getIgnoreCaseM, getInputFilenamesM,
-        getRawRegexM, getRecursiveM, outputConsumer, produerForSingleFile,
-        runCommonHighlightM, throwRegexCompileErr)
+       -- (CommonHighlightM,
+       --  FilenameHandlingFromFiles(NoFilename, PrintFilename),
+       --  FileOrigin(FileFoundRecursively, FileSpecifiedByUser),
+       --  FileProducer, InputData(InputDataFile, InputDataStdin),
+       --  Output(OutputStderr, OutputStdout), compileHighlightRegexWithErr,
+       --  computeFilenameHandlingFromFiles, createInputData,
+       --  getFilePathFromFileOrigin, getIgnoreCaseM, getInputFilenamesM,
+       --  getRawRegexM, getRecursiveM, outputConsumer, produerForSingleFile,
+       --  runCommonHighlightM, throwRegexCompileErr)
 import Highlight.Common.Pipes (numberedProducer)
 import Highlight.Common.Util (convertStringToRawByteString)
 import Highlight.Highlight.Options
@@ -97,6 +97,76 @@ handleInputData stdinFunc _ _ (InputDataStdin producer) =
   handleInputDataStdin stdinFunc producer
 handleInputData _ handleNonError handleError (InputDataFile filenameHandling fileProducer) =
   handleInputDataFile handleNonError handleError filenameHandling fileProducer
+
+handleInputData'
+  :: (FilenameHandlingFromStdin -> ByteString -> HighlightM [ByteString])
+  -> ( FilenameHandlingFromFiles
+        -> ByteString
+        -> Int
+        -> ByteString
+        -> [ByteString]
+     )
+  -> (ByteString -> IOException -> Maybe IOException -> [ByteString])
+  -> InputData' HighlightM ()
+  -> Producer Output HighlightM ()
+-- handleInputData' stdinFunc _ _ (InputDataStdin producer) =
+--   handleInputDataStdin stdinFunc producer
+handleInputData' stdinF nonErrF errF (InputData' nameHandling producer) = do
+  -- handleInputDataFile handleNonError handleError nameHandling producer
+  stdinHandling <- filenameHandlingFromStdinM
+  go stdinHandling
+  where
+    go :: FilenameHandlingFromStdin -> Producer Output HighlightM ()
+    go stdinHandling = producer >-> f
+      where
+        f :: Pipe (FileReader ByteString) Output HighlightM ()
+        f = do
+          fileReader <- await
+          let maybeFileOrigin = isFileReaderStdin fileReader
+          case maybeFileOrigin of
+            True ->
+              case fileReader of
+                FileReaderSuccess _ line -> do
+                  outByteStrings <- stdinF stdinHandling line
+                  sendToStdoutWithNewLine outByteStrings
+                -- We should never have an error reading from stdin, so just
+                -- do nothing.
+                FileReaderErr _ _ _ -> return ()
+            False -> undefined
+          f
+
+-- TODO: Make sure this can compile.
+
+
+sendToStdoutWithNewLine :: Monad m => [ByteString] -> Producer' Output m ()
+sendToStdoutWithNewLine byteStrings = do
+  let outputs = fmap OutputStdout byteStrings
+  case outputs of
+    [] -> return ()
+    (_:_) -> do
+      each outputs
+      yield $ OutputStdout "\n"
+
+-- data InputData' m a
+--   = InputData'
+--       !FilenameHandlingFromFiles
+--       !(Producer (FileReader ByteString) m ())
+--
+-- data FileReader a
+--   = FileReaderSuccess !FileOrigin !a
+--   | FileReaderErr !FileOrigin !IOException !(Maybe IOException)
+--   deriving (Eq, Show)
+--
+-- data FileOrigin
+--   = FileSpecifiedByUser FilePath
+--   | FileFoundRecursively FilePath
+--   | StdIn
+--   deriving (Eq, Read, Show)
+--
+-- getFilePathFromFileOrigin :: FileOrigin -> Maybe FilePath
+--
+-- fileOriginToString :: FileOrigin -> String
+
 
 handleInputDataStdin
   :: ( FilenameHandlingFromStdin

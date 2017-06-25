@@ -23,9 +23,10 @@ import Highlight.Common.Error (handleErr)
 import Highlight.Common.Pipes (stdinLines)
 import Highlight.Highlight.Monad
        (FilenameHandlingFromStdin(..), FilenameHandlingFromFiles(..),
-        FromGrepFilenameState, HighlightM, InputData, Output,
-        compileHighlightRegexWithErr, createInputData, handleInputData,
-        outputConsumer, runHighlightM, updateFilename)
+        FromGrepFilenameState, HighlightM, InputData, InputData', Output,
+        compileHighlightRegexWithErr, createInputData, createInputData',
+        getInputFilenamesM, getRecursiveM, handleInputData, outputConsumer,
+        runHighlightM, updateFilename)
 import Highlight.Highlight.Options (Options(..))
 
 run :: Options -> IO ()
@@ -47,11 +48,33 @@ highlightOutputProducer stdinProducer = do
   let outputProducer = getOutputProducer regex inputData
   return outputProducer
 
+highlightOutputProducer'
+  :: Producer ByteString HighlightM ()
+  -> HighlightM (Producer Output HighlightM ())
+highlightOutputProducer' stdinProducer = do
+  regex <- compileHighlightRegexWithErr
+  inputFilenames <- getInputFilenamesM
+  recursive <- getRecursiveM
+  inputData <- createInputData' recursive inputFilenames stdinProducer
+  let outputProducer = getOutputProducer' regex inputData
+  return outputProducer
+
 getOutputProducer
   :: RE
   -> InputData HighlightM ()
   -> Producer Output HighlightM ()
 getOutputProducer regex inputData =
+  handleInputData
+    (handleStdinInput regex)
+    (handleFileInput regex)
+    handleError
+    inputData
+
+getOutputProducer'
+  :: RE
+  -> InputData' HighlightM ()
+  -> Producer Output HighlightM ()
+getOutputProducer' regex inputData =
   handleInputData
     (handleStdinInput regex)
     (handleFileInput regex)

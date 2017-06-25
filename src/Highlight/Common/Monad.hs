@@ -104,12 +104,39 @@ type FileProducer m a =
 data FileOrigin
   = FileSpecifiedByUser FilePath
   | FileFoundRecursively FilePath
-  | StdIn
+  | Stdin
   deriving (Eq, Read, Show)
 
-getFilePathFromFileOrigin :: FileOrigin -> FilePath
-getFilePathFromFileOrigin (FileSpecifiedByUser fp) = fp
-getFilePathFromFileOrigin (FileFoundRecursively fp) = fp
+getFilePathFromFileOrigin :: FileOrigin -> Maybe FilePath
+getFilePathFromFileOrigin (FileSpecifiedByUser fp) = Just fp
+getFilePathFromFileOrigin (FileFoundRecursively fp) = Just fp
+getFilePathFromFileOrigin Stdin = Nothing
+
+fileOriginToString :: FileOrigin -> String
+fileOriginToString (FileSpecifiedByUser fp) = fp
+fileOriginToString (FileFoundRecursively fp) = fp
+fileOriginToString Stdin = "(standard input)"
+
+isFileOriginStdin :: FileOrigin -> Bool
+isFileOriginStdin Stdin = True
+isFileOriginStdin _ = False
+
+data FileReader a
+  = FileReaderSuccess !FileOrigin !a
+  | FileReaderErr !FileOrigin !IOException !(Maybe IOException)
+  deriving (Eq, Show)
+
+getFileOriginFromFileReader :: FileReader a -> FileOrigin
+getFileOriginFromFileReader (FileReaderSuccess origin _) = origin
+getFileOriginFromFileReader (FileReaderErr origin _ _) = origin
+
+getFilePathFromFileReader :: FileReader -> Maybe FilePath
+getFilePathFromFileReader =
+  getFilePathFromFileOrigin . getFileOriginFromFileReader
+
+isFileReaderStdin :: FileReader -> Bool
+isFileReaderStdin = isFileOriginStdin . getFileOriginFromFileReader
+
 
 createInputData
   :: forall r s e.
@@ -170,15 +197,6 @@ data InputData' m a
       !FilenameHandlingFromFiles
       !(Producer (FileReader ByteString) m ())
 
-
-data FileReader a
-  = FileReaderSuccess !FileOrigin !a
-  | FileReaderErr !FileOrigin !IOException !(Maybe IOException)
-  deriving (Eq, Show)
-
-getFileOriginFromFileReader :: FileReader a -> FileOrigin
-getFileOriginFromFileReader (FileReaderSuccess origin _) = origin
-getFileOriginFromFileReader (FileReaderErr origin _ _) = origin
 
 fileReaderHandleToLine
   :: forall m x' x.
