@@ -114,35 +114,90 @@ handleInputData' stdinF nonErrF errF (InputData' nameHandling producer) = do
   go stdinHandling
   where
     go :: FilenameHandlingFromStdin -> Producer Output HighlightM ()
-    go stdinHandling = producer >-> f
+    go stdinHandling = producer >-> f Nothing 0
       where
-        f :: Pipe (FileReader ByteString) Output HighlightM ()
-        f = do
+        f
+          :: Maybe FileOrigin -- ^ Prevous file origin.  This is 'Nothing' if
+                              -- there is no previous file.
+          -> ColorNum -- ^ Current file number.  Used to set the filename color.
+          -> Pipe (FileReader ByteString) Output HighlightM ()
+        f maybePrevFileOrigin prevColorNum = do
           fileReader <- await
           let maybeFilePath = getFilePathFromFileReader fileReader
-          case maybeFilePath of
-            -- stdin
-            Nothing ->
-              case fileReader of
-                FileReaderSuccess _ line -> do
-                  outByteStrings <- lift $ stdinF stdinHandling line
-                  sendToStdoutWithNewLine outByteStrings
-                -- We should never have an error reading from stdin, so just
-                -- do nothing.
-                FileReaderErr _ _ _ -> return ()
-            Just filePath -> do
-              byteStringFilePath <- convertStringToRawByteString filePath
-              case fileReader of
-                FileReaderErr _ ioerr maybeioerr -> do
-                  let outByteStrings =
-                        errF byteStringFilePath ioerr maybeioerr
-                  sendToStderrWithNewLine outByteStrings
-                FileReaderSuccess _ inputLine -> do
-                  -- TODO: Here is where I need to get the file number stuff.
-                  let outByteStrings =
-                        nonErrF nameHandling byteStringFilePath 1 inputLine
-                  sendToStdoutWithNewLine outByteStrings
-          f
+              fileOrigin = getFileOriginFromFileReader fileReader
+              currColorNum =
+                getColorNum maybePrevFileOrigin prevColorNum fileOrigin
+          (newFileOrigin, newColorNum) <-
+            case maybeFilePath of
+              -- stdin
+              Nothing ->
+                case fileReader of
+                  FileReaderSuccess stdinFileOrigin line -> do
+                    outByteStrings <- lift $ stdinF stdinHandling line
+                    case outByteStrings of
+                      [] -> return (maybePrevFileOrigin, prevColorNum)
+                      (_:_) -> do
+                        sendToStdoutWithNewLine outByteStrings
+                        return $
+                          updateColorNum
+                            maybePrevFileOrigin
+                            prevColorNum
+                            stdinFileOrigin
+                  -- We should never have an error reading from stdin, so just
+                  -- do nothing.
+                  FileReaderErr _ _ _ ->
+                      return (maybePrevFileOrigin, prevColorNum)
+              -- normal file
+              Just filePath -> do
+                byteStringFilePath <- convertStringToRawByteString filePath
+                case fileReader of
+                  FileReaderErr _ ioerr maybeioerr -> do
+                    let outByteStrings =
+                          errF byteStringFilePath ioerr maybeioerr
+                    case outByteStrings of
+                      [] -> return (maybePrevFileOrigin, prevColorNum)
+                      (_:_) -> do
+                        sendToStderrWithNewLine outByteStrings
+                        return (maybePrevFileOrigin, prevColorNum)
+                  FileReaderSuccess _ inputLine -> do
+                    let outByteStrings =
+                          nonErrF
+                            nameHandling
+                            byteStringFilePath
+                            currColorNum
+                            inputLine
+                    case outByteStrings of
+                      [] -> return (maybePrevFileOrigin, currColorNum)
+                      (_:_) -> do
+                        sendToStdoutWithNewLine outByteStrings
+                        return $
+                          updateColorNum
+                            maybePrevFileOrigin
+                            prevColorNum
+                            fileOrigin
+          f newFileOrigin newColorNum
+
+updateColorNum
+  :: Maybe FileOrigin
+  -> ColorNum
+  -> FileOrigin
+  -> (Maybe FileOrigin, ColorNum)
+updateColorNum Nothing colorNum newFileOrigin = (Just newFileOrigin, colorNum)
+updateColorNum (Just prevFileOrigin) colorNum newFileOrigin
+  | prevFileOrigin == newFileOrigin = (Just newFileOrigin, colorNum)
+  | otherwise = (Just newFileOrigin, colorNum + 1)
+
+getColorNum
+  :: Maybe FileOrigin
+  -> ColorNum
+  -> FileOrigin
+  -> ColorNum
+getColorNum Nothing colorNum _ = colorNum
+getColorNum (Just prevFileOrigin) colorNum newFileOrigin
+  | prevFileOrigin == newFileOrigin = colorNum
+  | otherwise = colorNum + 1
+
+type ColorNum = Int
 
 sendToStdoutWithNewLine :: Monad m => [ByteString] -> Producer' Output m ()
 sendToStdoutWithNewLine = sendWithNewLine OutputStdout
