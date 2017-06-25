@@ -34,7 +34,7 @@ import Highlight.Highlight.Monad (HighlightM, runHighlightM)
 import Highlight.Highlight.Options
        (ColorGrepFilenames(ColorGrepFilenames), Options,
         colorGrepFilenamesLens, defaultOptions)
-import Highlight.Highlight.Run (highlightOutputProducer)
+import Highlight.Highlight.Run (highlightOutputProducer')
 import Highlight.Hrep.Monad (HrepM, runHrepM)
 import Highlight.Hrep.Run (hrepOutputProducer)
 
@@ -45,7 +45,7 @@ runHighlightTestWithStdin
   -> IO LByteString.ByteString
 runHighlightTestWithStdin opts stdinPipe filterPipe = do
   eitherByteStrings <- runHighlightM opts $ do
-    outputProducer <- highlightOutputProducer stdinPipe
+    outputProducer <- highlightOutputProducer' stdinPipe
     toListM $ outputProducer >-> filterPipe
   case eitherByteStrings of
     Left err -> error $ "unexpected error: " <> show err
