@@ -130,11 +130,11 @@ getFileOriginFromFileReader :: FileReader a -> FileOrigin
 getFileOriginFromFileReader (FileReaderSuccess origin _) = origin
 getFileOriginFromFileReader (FileReaderErr origin _ _) = origin
 
-getFilePathFromFileReader :: FileReader -> Maybe FilePath
+getFilePathFromFileReader :: FileReader a -> Maybe FilePath
 getFilePathFromFileReader =
   getFilePathFromFileOrigin . getFileOriginFromFileReader
 
-isFileReaderStdin :: FileReader -> Bool
+isFileReaderStdin :: FileReader a -> Bool
 isFileReaderStdin = isFileOriginStdin . getFileOriginFromFileReader
 
 
@@ -185,7 +185,7 @@ stdinProducerToFileReader
 stdinProducerToFileReader producer = producer >-> Pipes.map go
   where
     go :: a -> FileReader a
-    go = FileReaderSuccess StdIn
+    go = FileReaderSuccess Stdin
 {-# INLINABLE stdinProducerToFileReader #-}
 
 data InputData m a
@@ -226,29 +226,35 @@ fileListProducer recursive = go
   where
     go :: FileOrigin -> Producer' (FileReader Handle) m ()
     go fileOrigin = do
-      let filePath = getFilePathFromFileOrigin fileOrigin
-      eitherHandle <- openFilePathForReading filePath
-      case eitherHandle of
-        Right handle -> yield $ FileReaderSuccess fileOrigin handle
-        Left fileIOErr ->
-          if recursive == Recursive
-            then do
-              let fileListM = toListM $ childOf filePath
-              eitherFileList <- liftIO $ try fileListM
-              case eitherFileList of
-                Left dirIOErr ->
-                  yield $
-                    FileReaderErr fileOrigin fileIOErr (Just dirIOErr)
-                Right fileList -> do
-                  let sortedFileList = sort fileList
-                  let fileOrigins = fmap FileFoundRecursively sortedFileList
-                  let lalas =
-                        fmap
-                          (fileListProducer recursive)
-                          fileOrigins
-                  for (each lalas) id
-            else
-              yield $ FileReaderErr fileOrigin fileIOErr Nothing
+      let maybeFilePath = getFilePathFromFileOrigin fileOrigin
+      case maybeFilePath of
+        -- This is standard input.  We don't currently handle this, so just
+        -- return unit.
+        Nothing -> return ()
+        -- This is a normal file.  Not standard input.
+        Just filePath -> do
+          eitherHandle <- openFilePathForReading filePath
+          case eitherHandle of
+            Right handle -> yield $ FileReaderSuccess fileOrigin handle
+            Left fileIOErr ->
+              if recursive == Recursive
+                then do
+                  let fileListM = toListM $ childOf filePath
+                  eitherFileList <- liftIO $ try fileListM
+                  case eitherFileList of
+                    Left dirIOErr ->
+                      yield $
+                        FileReaderErr fileOrigin fileIOErr (Just dirIOErr)
+                    Right fileList -> do
+                      let sortedFileList = sort fileList
+                      let fileOrigins = fmap FileFoundRecursively sortedFileList
+                      let lalas =
+                            fmap
+                              (fileListProducer recursive)
+                              fileOrigins
+                      for (each lalas) id
+                else
+                  yield $ FileReaderErr fileOrigin fileIOErr Nothing
 
 -- | TODO: It would be nice to turn this into two functions, one that just gets
 -- a list of all files to read, and one that creates the 'Producer' that
@@ -261,30 +267,36 @@ produerForSingleFile recursive = go
   where
     go :: FileOrigin -> FileProducer m ()
     go fileOrigin = do
-      let filePath = getFilePathFromFileOrigin fileOrigin
-      eitherHandle <- openFilePathForReading filePath
-      case eitherHandle of
-        Right handle -> do
-          let linesProducer = fromHandleLines handle
-          yield (fileOrigin, Right linesProducer)
-        Left fileIOErr ->
-          if recursive == Recursive
-            then do
-              let fileListM = toListM $ childOf filePath
-              eitherFileList <- liftIO $ try fileListM
-              case eitherFileList of
-                Left dirIOErr ->
-                  yield (fileOrigin, Left (fileIOErr, Just dirIOErr))
-                Right fileList -> do
-                  let sortedFileList = sort fileList
-                  let fileOrigins = fmap FileFoundRecursively sortedFileList
-                  let lalas =
-                        fmap
-                          (produerForSingleFile recursive)
-                          fileOrigins
-                  for (each lalas) id
-            else
-              yield (fileOrigin, Left (fileIOErr, Nothing))
+      let maybeFilePath = getFilePathFromFileOrigin fileOrigin
+      case maybeFilePath of
+        -- This is standard input.  We don't currently handle this, so just
+        -- return unit.
+        Nothing -> return ()
+        -- This is a normal file.  Not standard input.
+        Just filePath -> do
+          eitherHandle <- openFilePathForReading filePath
+          case eitherHandle of
+            Right handle -> do
+              let linesProducer = fromHandleLines handle
+              yield (fileOrigin, Right linesProducer)
+            Left fileIOErr ->
+              if recursive == Recursive
+                then do
+                  let fileListM = toListM $ childOf filePath
+                  eitherFileList <- liftIO $ try fileListM
+                  case eitherFileList of
+                    Left dirIOErr ->
+                      yield (fileOrigin, Left (fileIOErr, Just dirIOErr))
+                    Right fileList -> do
+                      let sortedFileList = sort fileList
+                      let fileOrigins = fmap FileFoundRecursively sortedFileList
+                      let lalas =
+                            fmap
+                              (produerForSingleFile recursive)
+                              fileOrigins
+                      for (each lalas) id
+                else
+                  yield (fileOrigin, Left (fileIOErr, Nothing))
 
 
 data Output
@@ -323,6 +335,7 @@ computeFilenameHandlingFromFiles producer = do
       return (NoFilename, return ret)
     Right ((fileOrigin1, a1), producer2) ->
       case fileOrigin1 of
+        Stdin -> error "Not currenty handling stdin..."
         FileSpecifiedByUser _ -> do
           eitherSecondFile <- next producer2
           case eitherSecondFile of
@@ -349,6 +362,7 @@ computeFilenameHandlingFromFiles' producer1 = do
     Right (fileReader1, producer2) -> do
       let fileOrigin1 = getFileOriginFromFileReader fileReader1
       case fileOrigin1 of
+        Stdin -> error "Not currenty handling stdin..."
         FileSpecifiedByUser _ -> do
           eitherSecondFile <- next producer2
           case eitherSecondFile of

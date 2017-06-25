@@ -107,16 +107,24 @@ handleInputDataFile handleNonError handleError filenameHandling fileProducer =
          )
       -> Producer Output HrepM ()
     g (_, fileOrigin, Left (ioerr, maybeioerr)) = do
-      let filePath = getFilePathFromFileOrigin fileOrigin
-      byteStringFilePath <- convertStringToRawByteString filePath
-      let outputLines =
-            fmap OutputStderr $ handleError byteStringFilePath ioerr maybeioerr
-      each outputLines
-      yield $ OutputStderr "\n"
+      let maybeFilePath = getFilePathFromFileOrigin fileOrigin
+      case maybeFilePath of
+        -- This is standard input.  Not currently handling it.
+        Nothing -> return ()
+        Just filePath -> do
+          byteStringFilePath <- convertStringToRawByteString filePath
+          let outputLines =
+                fmap OutputStderr $ handleError byteStringFilePath ioerr maybeioerr
+          each outputLines
+          yield $ OutputStderr "\n"
     g (fileNumber, fileOrigin, Right producer) = do
-      let filePath = getFilePathFromFileOrigin fileOrigin
-      byteStringFilePath <- convertStringToRawByteString filePath
-      producer >-> bababa byteStringFilePath
+      let maybeFilePath = getFilePathFromFileOrigin fileOrigin
+      case maybeFilePath of
+        -- This is standard input.  Not currently handling it.
+        Nothing -> return ()
+        Just filePath -> do
+          byteStringFilePath <- convertStringToRawByteString filePath
+          producer >-> bababa byteStringFilePath
       where
         bababa :: ByteString -> Pipe ByteString Output HrepM ()
         bababa filePath = go

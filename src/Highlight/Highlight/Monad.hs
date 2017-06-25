@@ -19,7 +19,7 @@ import Control.Monad.Reader (MonadReader)
 import Control.Monad.State (MonadState, get, put)
 import Control.Monad.Trans.Class (lift)
 import Data.ByteString (ByteString)
-import Pipes (Pipe, Producer, (>->), await, each, for, yield)
+import Pipes (Pipe, Producer, Producer', (>->), await, each, for, yield)
 
 import Highlight.Common.Error (HighlightErr(..))
 import Highlight.Common.Monad
@@ -127,16 +127,13 @@ handleInputData' stdinF nonErrF errF (InputData' nameHandling producer) = do
             True ->
               case fileReader of
                 FileReaderSuccess _ line -> do
-                  outByteStrings <- stdinF stdinHandling line
+                  outByteStrings <- lift $ stdinF stdinHandling line
                   sendToStdoutWithNewLine outByteStrings
                 -- We should never have an error reading from stdin, so just
                 -- do nothing.
                 FileReaderErr _ _ _ -> return ()
             False -> undefined
           f
-
--- TODO: Make sure this can compile.
-
 
 sendToStdoutWithNewLine :: Monad m => [ByteString] -> Producer' Output m ()
 sendToStdoutWithNewLine byteStrings = do
@@ -219,16 +216,24 @@ handleInputDataFile handleNonError handleError filenameHandling fileProducer =
          )
       -> Producer Output HighlightM ()
     g (_, fileOrigin, Left (ioerr, maybeioerr)) = do
-      let filePath = getFilePathFromFileOrigin fileOrigin
-      byteStringFilePath <- convertStringToRawByteString filePath
-      let outputLines =
-            fmap OutputStderr $ handleError byteStringFilePath ioerr maybeioerr
-      each outputLines
-      yield $ OutputStderr "\n"
+      let maybeFilePath = getFilePathFromFileOrigin fileOrigin
+      case maybeFilePath of
+        -- This is standard input.  Not currently handling it.
+        Nothing -> return ()
+        Just filePath -> do
+          byteStringFilePath <- convertStringToRawByteString filePath
+          let outputLines =
+                fmap OutputStderr $ handleError byteStringFilePath ioerr maybeioerr
+          each outputLines
+          yield $ OutputStderr "\n"
     g (fileNumber, fileOrigin, Right producer) = do
-      let filePath = getFilePathFromFileOrigin fileOrigin
-      byteStringFilePath <- convertStringToRawByteString filePath
-      producer >-> bababa byteStringFilePath
+      let maybeFilePath = getFilePathFromFileOrigin fileOrigin
+      case maybeFilePath of
+        -- This is standard input.  Not currently handling it.
+        Nothing -> return ()
+        Just filePath -> do
+          byteStringFilePath <- convertStringToRawByteString filePath
+          producer >-> bababa byteStringFilePath
       where
         bababa :: ByteString -> Pipe ByteString Output HighlightM ()
         bababa filePath = go
