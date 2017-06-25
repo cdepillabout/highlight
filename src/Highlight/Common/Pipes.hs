@@ -63,9 +63,20 @@ fromFileLines filePath = do
 -- >>> toList $ numberedProducer producer
 -- [(0,"dog",3.3),(1,"bird",10.1),(2,"cat",25.5)]
 numberedProducer
-  :: forall a b m.  Monad m => Producer (a, b) m () -> Producer (Int, a, b) m ()
+  :: forall a b m.  Monad m => Producer (a, b) m () -> Producer' (Int, a, b) m ()
 numberedProducer = Pipes.zipWith (\int (a, b) -> (int, a, b)) $ each [0..]
 {-# INLINABLE numberedProducer #-}
+
+-- | Number each value in a 'Producer'.
+--
+-- >>> import Pipes.Prelude (toList)
+-- >>> let producer = each ["dog", "bird", "cat"]
+-- >>> toList $ numberedProducer' producer
+-- [(0,"dog"),(1,"bird"),(2,"cat")]
+numberedProducer'
+  :: forall a m.  Monad m => Producer a m () -> Producer' (Int, a) m ()
+numberedProducer' = Pipes.zipWith (\int a -> (int, a)) $ each [0..]
+{-# INLINABLE numberedProducer' #-}
 
 -- | Output 'ByteString's to 'stderr'.
 --
