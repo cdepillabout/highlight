@@ -133,6 +133,10 @@ data FileReader a
   | FileReaderErr !FileOrigin !IOException !(Maybe IOException)
   deriving (Eq, Show)
 
+getFileOriginFromFileReader :: FileReader a -> FileOrigin
+getFileOriginFromFileReader (FileReaderSuccess origin _) = origin
+getFileOriginFromFileReader (FileReaderErr origin _ _) = origin
+
 fileReaderHandleToLine
   :: forall m x' x.
      MonadIO m
@@ -274,6 +278,32 @@ computeFilenameHandlingFromFiles producer = do
                 )
         FileFoundRecursively _ ->
           return (PrintFilename, yield (fileOrigin1, a1) *> producer2)
+
+computeFilenameHandlingFromFiles'
+  :: forall a m r.
+     Monad m
+  => Producer (FileReader a) m r
+  -> m (FilenameHandlingFromFiles, Producer (FileReader a) m r)
+computeFilenameHandlingFromFiles' producer1 = do
+  eitherFileReader1 <- next producer1
+  case eitherFileReader1 of
+    Left ret ->
+      return (NoFilename, return ret)
+    Right (fileReader1, producer2) -> do
+      let fileOrigin1 = getFileOriginFromFileReader fileReader1
+      case fileOrigin1 of
+        FileSpecifiedByUser _ -> do
+          eitherSecondFile <- next producer2
+          case eitherSecondFile of
+            Left ret2 ->
+              return (NoFilename, yield fileReader1 *> return ret2)
+            Right (fileReader2, producer3) ->
+              return
+                ( PrintFilename
+                , yield fileReader1 *> yield fileReader2 *> producer3
+                )
+        FileFoundRecursively _ ->
+          return (PrintFilename, yield fileReader1 *> producer2)
 
 -----------
 -- Regex --
