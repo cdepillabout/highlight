@@ -79,7 +79,7 @@ stderrConsumer = go
       bs <- await
       x  <- liftIO $ try (hPutStr stderr bs)
       case x of
-        Left (IOError { ioe_type = ResourceVanished, ioe_errno = Just ioe })
+        Left IOError { ioe_type = ResourceVanished, ioe_errno = Just ioe }
           | Errno ioe == ePIPE -> return ()
         Left  e  -> liftIO $ throwIO e
         Right () -> go
