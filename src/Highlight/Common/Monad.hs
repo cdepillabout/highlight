@@ -20,7 +20,7 @@ import Control.Monad.State (MonadState, StateT, evalStateT)
 import Data.ByteString (ByteString)
 import Data.List (sort)
 import Pipes
-       (Consumer, Pipe, Producer, Producer', (>->), await, each, for,
+       (Consumer, Pipe, Producer, Producer', Proxy, (>->), await, each, for,
         next, yield)
 import Pipes.ByteString (stdout)
 import Pipes.Prelude (toListM)
@@ -134,9 +134,10 @@ data FileReader a
   deriving (Eq, Show)
 
 fileReaderHandleToLine
-  :: forall m.
+  :: forall m x' x.
      MonadIO m
-  => Producer' (FileReader Handle) m () -> Producer' (FileReader ByteString) m ()
+  => Proxy x' x () (FileReader Handle) m ()
+  -> Proxy x' x () (FileReader ByteString) m ()
 fileReaderHandleToLine producer = producer >-> pipe
   where
     pipe :: Pipe (FileReader Handle) (FileReader ByteString) m ()
