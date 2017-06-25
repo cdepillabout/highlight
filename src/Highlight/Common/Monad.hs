@@ -128,6 +128,10 @@ createInputData stdinProducer = do
         computeFilenameHandlingFromFiles fileProducer
       return $ InputDataFile filenameHandling newHighlightFileProducer
 
+data InputData m a
+  = InputDataStdin !(Producer ByteString m a)
+  | InputDataFile !FilenameHandlingFromFiles !(FileProducer m a)
+
 data FileReader a
   = FileReaderSuccess !FileOrigin !a
   | FileReaderErr !FileOrigin !IOException !(Maybe IOException)
@@ -224,10 +228,6 @@ produerForSingleFile recursive = go
                   for (each lalas) id
             else
               yield (fileOrigin, Left (fileIOErr, Nothing))
-
-data InputData m a
-  = InputDataStdin !(Producer ByteString m a)
-  | InputDataFile !FilenameHandlingFromFiles !(FileProducer m a)
 
 
 data Output
