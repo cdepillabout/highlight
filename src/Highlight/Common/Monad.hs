@@ -104,6 +104,7 @@ type FileProducer m a =
 data FileOrigin
   = FileSpecifiedByUser FilePath
   | FileFoundRecursively FilePath
+  | StdIn
   deriving (Eq, Read, Show)
 
 getFilePathFromFileOrigin :: FileOrigin -> FilePath
@@ -138,22 +139,34 @@ createInputData'
 createInputData' recursive inputFilenames stdinProducer = do
   let fileOrigins = FileSpecifiedByUser . unInputFilename <$> inputFilenames
   case fileOrigins of
-    [] -> return $ InputDataStdin' stdinProducer
+    [] ->
+      return $
+        InputData' NoFilename (stdinProducerToFileReader stdinProducer)
     _ -> do
       let fileListProducers = fmap (fileListProducer recursive) fileOrigins
           fileProducer = foldl1 combineApplicatives fileListProducers
       (filenameHandling, newFileProducer) <-
         computeFilenameHandlingFromFiles' fileProducer
       let fileLineProducer = fileReaderHandleToLine newFileProducer
-      return $ InputDataFile' filenameHandling fileLineProducer
+      return $ InputData' filenameHandling fileLineProducer
+
+stdinProducerToFileReader
+  :: forall x' x a m r.
+     Monad m
+  => Proxy x' x () a m r
+  -> Proxy x' x () (FileReader a) m r
+stdinProducerToFileReader producer = producer >-> Pipes.map go
+  where
+    go :: a -> FileReader a
+    go = FileReaderSuccess StdIn
+{-# INLINABLE stdinProducerToFileReader #-}
 
 data InputData m a
   = InputDataStdin !(Producer ByteString m a)
   | InputDataFile !FilenameHandlingFromFiles !(FileProducer m a)
 
 data InputData' m a
-  = InputDataStdin' !(Producer ByteString m a)
-  | InputDataFile'
+  = InputData'
       !FilenameHandlingFromFiles
       !(Producer (FileReader ByteString) m ())
 
