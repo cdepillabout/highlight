@@ -109,10 +109,7 @@ handleInputData'
   -> (ByteString -> IOException -> Maybe IOException -> [ByteString])
   -> InputData' HighlightM ()
   -> Producer Output HighlightM ()
--- handleInputData' stdinFunc _ _ (InputDataStdin producer) =
---   handleInputDataStdin stdinFunc producer
 handleInputData' stdinF nonErrF errF (InputData' nameHandling producer) = do
-  -- handleInputDataFile handleNonError handleError nameHandling producer
   stdinHandling <- filenameHandlingFromStdinM
   go stdinHandling
   where
@@ -122,9 +119,10 @@ handleInputData' stdinF nonErrF errF (InputData' nameHandling producer) = do
         f :: Pipe (FileReader ByteString) Output HighlightM ()
         f = do
           fileReader <- await
-          let maybeFileOrigin = isFileReaderStdin fileReader
-          case maybeFileOrigin of
-            True ->
+          let maybeFilePath = getFilePathFromFileReader fileReader
+          case maybeFilePath of
+            -- stdin
+            Nothing ->
               case fileReader of
                 FileReaderSuccess _ line -> do
                   outByteStrings <- lift $ stdinF stdinHandling line
@@ -132,17 +130,36 @@ handleInputData' stdinF nonErrF errF (InputData' nameHandling producer) = do
                 -- We should never have an error reading from stdin, so just
                 -- do nothing.
                 FileReaderErr _ _ _ -> return ()
-            False -> undefined
+            Just filePath -> do
+              byteStringFilePath <- convertStringToRawByteString filePath
+              case fileReader of
+                FileReaderErr _ ioerr maybeioerr -> do
+                  let outByteStrings =
+                        errF byteStringFilePath ioerr maybeioerr
+                  sendToStderrWithNewLine outByteStrings
+                FileReaderSuccess _ inputLine -> do
+                  -- TODO: Here is where I need to get the file number stuff.
+                  let outByteStrings =
+                        nonErrF nameHandling byteStringFilePath 1 inputLine
+                  sendToStdoutWithNewLine outByteStrings
           f
 
 sendToStdoutWithNewLine :: Monad m => [ByteString] -> Producer' Output m ()
-sendToStdoutWithNewLine byteStrings = do
-  let outputs = fmap OutputStdout byteStrings
+sendToStdoutWithNewLine = sendWithNewLine OutputStdout
+
+sendToStderrWithNewLine :: Monad m => [ByteString] -> Producer' Output m ()
+sendToStderrWithNewLine = sendWithNewLine OutputStderr
+
+sendWithNewLine
+  :: Monad m
+  => (ByteString -> Output) -> [ByteString] -> Producer' Output m ()
+sendWithNewLine byteStringToOutput byteStrings = do
+  let outputs = fmap byteStringToOutput byteStrings
   case outputs of
     [] -> return ()
     (_:_) -> do
       each outputs
-      yield $ OutputStdout "\n"
+      yield $ byteStringToOutput "\n"
 
 -- data InputData' m a
 --   = InputData'

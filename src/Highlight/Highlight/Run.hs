@@ -36,7 +36,7 @@ run opts = do
 
 prog :: HighlightM ()
 prog = do
-  outputProducer <- highlightOutputProducer stdinLines
+  outputProducer <- highlightOutputProducer' stdinLines
   runOutputProducer outputProducer
 
 highlightOutputProducer
