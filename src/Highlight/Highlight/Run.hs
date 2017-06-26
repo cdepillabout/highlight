@@ -26,7 +26,7 @@ import Highlight.Highlight.Monad
         FromGrepFilenameState, HighlightM, InputData', Output,
         compileHighlightRegexWithErr, createInputData',
         filenameHandlingFromStdinM, getInputFilenamesM, getRecursiveM,
-        handleInputData', outputConsumer, runHighlightM,
+        handleInputData, outputConsumer, runHighlightM,
         updateFilename)
 import Highlight.Highlight.Options (HasColorGrepFilenames, Options(..))
 
@@ -56,7 +56,7 @@ getOutputProducer
   -> InputData' HighlightM ()
   -> Producer Output HighlightM ()
 getOutputProducer regex =
-  handleInputData'
+  handleInputData
     (handleStdinInput' regex)
     (handleFileInput regex)
     handleError

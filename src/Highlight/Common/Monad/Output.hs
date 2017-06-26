@@ -32,7 +32,7 @@ import Highlight.Common.Util (convertStringToRawByteString, whenNonNull)
 -- Convert input to Output --
 -----------------------------
 
-handleInputData'
+handleInputData
   :: forall m.
      MonadIO m
   => (ByteString -> m [ByteString])
@@ -45,7 +45,7 @@ handleInputData'
   -> (ByteString -> IOException -> Maybe IOException -> m [ByteString])
   -> InputData' m ()
   -> Producer Output m ()
-handleInputData' stdinF nonErrF errF (InputData' nameHandling producer) =
+handleInputData stdinF nonErrF errF (InputData' nameHandling producer) =
   producer >-> evalStateT go (Nothing, 0)
   where
     go

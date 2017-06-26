@@ -23,7 +23,7 @@ import Highlight.Common.Pipes (stdinLines)
 import Highlight.Hrep.Monad
        (FilenameHandlingFromFiles(..), HrepM, InputData', Output,
         compileHighlightRegexWithErr, createInputData', getInputFilenamesM,
-        getRecursiveM, handleInputData', outputConsumer, runHrepM)
+        getRecursiveM, handleInputData, outputConsumer, runHrepM)
 
 run :: CommonOptions -> IO ()
 run opts = do
@@ -51,7 +51,7 @@ getOutputProducer
   -> InputData' HrepM ()
   -> Producer Output HrepM ()
 getOutputProducer regex =
-  handleInputData'
+  handleInputData
     (handleStdinInput regex)
     (handleFileInput regex)
     handleError
