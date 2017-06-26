@@ -7,7 +7,7 @@ import Prelude.Compat
 import Data.Monoid ((<>))
 
 import Highlight.Common.Options (RawRegex(RawRegex))
-import Highlight.Common.Util (die)
+import Highlight.Util (die)
 
 data HighlightErr
   = HighlightRegexCompileErr RawRegex

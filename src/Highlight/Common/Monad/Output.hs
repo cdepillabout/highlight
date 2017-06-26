@@ -29,8 +29,8 @@ import Highlight.Common.Monad.Input
         FileReader(FileReaderErr, FileReaderSuccess),
         InputData(InputData), getFileOriginFromFileReader,
         getFilePathFromFileReader)
-import Highlight.Common.Pipes (stderrConsumer)
-import Highlight.Common.Util (convertStringToRawByteString, whenNonNull)
+import Highlight.Pipes (stderrConsumer)
+import Highlight.Util (convertStringToRawByteString, whenNonNull)
 
 -----------------------------
 -- Convert input to Output --

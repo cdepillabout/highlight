@@ -31,9 +31,8 @@ import System.IO (Handle)
 
 import Highlight.Common.Options
        (InputFilename(unInputFilename), Recursive(Recursive))
-import Highlight.Common.Pipes (childOf, fromHandleLines)
-import Highlight.Common.Util
-       (combineApplicatives, openFilePathForReading)
+import Highlight.Pipes (childOf, fromHandleLines)
+import Highlight.Util (combineApplicatives, openFilePathForReading)
 
 -----------
 -- Pipes --

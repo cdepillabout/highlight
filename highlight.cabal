@@ -41,8 +41,6 @@ library
                      , Highlight.Common.Monad.Input
                      , Highlight.Common.Monad.Output
                      , Highlight.Common.Options
-                     , Highlight.Common.Pipes
-                     , Highlight.Common.Util
                      , Highlight.Highlight
                      , Highlight.Highlight.Monad
                      , Highlight.Highlight.Options
@@ -50,6 +48,8 @@ library
                      , Highlight.Hrep
                      , Highlight.Hrep.Monad
                      , Highlight.Hrep.Run
+                     , Highlight.Pipes
+                     , Highlight.Util
   build-depends:       base >= 4.5 && < 5
                      , base-compat >= 0.8
                      , ansi-terminal >= 0.6
