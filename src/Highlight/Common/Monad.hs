@@ -15,16 +15,12 @@ module Highlight.Common.Monad
 import Prelude ()
 import Prelude.Compat
 
-import Control.Exception (IOException, try)
 import Control.Lens (view)
 import Control.Monad.Except (ExceptT, MonadError, runExceptT, throwError)
-import Control.Monad.IO.Class (MonadIO(liftIO))
+import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Reader (MonadReader, ReaderT, runReaderT)
 import Control.Monad.State (MonadState, StateT, evalStateT)
-import Data.ByteString (ByteString)
-import Data.List (sort)
-import Pipes (Producer, each, for, next, yield)
-import Pipes.Prelude (toListM)
+import Pipes (Producer, next, yield)
 import Text.RE.PCRE
        (RE, SimpleREOptions(MultilineInsensitive, MultilineSensitive),
         compileRegexWith)
@@ -36,11 +32,7 @@ import Highlight.Common.Options
        (HasIgnoreCase(ignoreCaseLens),
         HasInputFilenames(inputFilenamesLens), HasRecursive(recursiveLens),
         HasRawRegex(rawRegexLens), IgnoreCase(DoNotIgnoreCase, IgnoreCase),
-        InputFilename(unInputFilename), RawRegex(RawRegex),
-        Recursive(Recursive))
-import Highlight.Common.Pipes (childOf, fromHandleLines)
-import Highlight.Common.Util
-       (combineApplicatives, openFilePathForReading)
+        InputFilename, RawRegex(RawRegex), Recursive)
 
 --------------------------------
 -- The Common Highlight Monad --
@@ -86,84 +78,6 @@ throwHighlightErr = throwError
 
 throwRegexCompileErr :: RawRegex -> CommonHighlightM r s HighlightErr a
 throwRegexCompileErr = throwHighlightErr . HighlightRegexCompileErr
-
------------
--- Pipes --
------------
-
-type FileProducer m a =
-  Producer
-    ( FileOrigin
-    , Either
-        (IOException, Maybe IOException)
-        (Producer ByteString m a)
-    )
-    m
-    a
-
-createInputData
-  :: forall r s e.
-     (HasInputFilenames r, HasRecursive r)
-  => Producer ByteString (CommonHighlightM r s e) ()
-  -> CommonHighlightM r s e (InputData (CommonHighlightM r s e) ())
-createInputData stdinProducer = do
-  inputFilenames <-
-    fmap (FileSpecifiedByUser . unInputFilename) <$> getInputFilenamesM
-  recursive <- getRecursiveM
-  case inputFilenames of
-    [] -> return $ InputDataStdin stdinProducer
-    files -> do
-      let lalas = fmap (produerForSingleFile recursive) files
-      let fileProducer = foldl1 combineApplicatives lalas
-      (filenameHandling, newHighlightFileProducer) <-
-        computeFilenameHandlingFromFiles fileProducer
-      return $ InputDataFile filenameHandling newHighlightFileProducer
-
-data InputData m a
-  = InputDataStdin !(Producer ByteString m a)
-  | InputDataFile !FilenameHandlingFromFiles !(FileProducer m a)
-
--- | TODO: It would be nice to turn this into two functions, one that just gets
--- a list of all files to read, and one that creates the 'Producer' that
--- actually pulles lines out of the file.
-produerForSingleFile
-  :: forall m.
-     MonadIO m
-  => Recursive -> FileOrigin -> FileProducer m ()
-produerForSingleFile recursive = go
-  where
-    go :: FileOrigin -> FileProducer m ()
-    go fileOrigin = do
-      let maybeFilePath = getFilePathFromFileOrigin fileOrigin
-      case maybeFilePath of
-        -- This is standard input.  We don't currently handle this, so just
-        -- return unit.
-        Nothing -> return ()
-        -- This is a normal file.  Not standard input.
-        Just filePath -> do
-          eitherHandle <- openFilePathForReading filePath
-          case eitherHandle of
-            Right handle -> do
-              let linesProducer = fromHandleLines handle
-              yield (fileOrigin, Right linesProducer)
-            Left fileIOErr ->
-              if recursive == Recursive
-                then do
-                  let fileListM = toListM $ childOf filePath
-                  eitherFileList <- liftIO $ try fileListM
-                  case eitherFileList of
-                    Left dirIOErr ->
-                      yield (fileOrigin, Left (fileIOErr, Just dirIOErr))
-                    Right fileList -> do
-                      let sortedFileList = sort fileList
-                      let fileOrigins = fmap FileFoundRecursively sortedFileList
-                      let lalas =
-                            fmap
-                              (produerForSingleFile recursive)
-                              fileOrigins
-                      for (each lalas) id
-                else
-                  yield (fileOrigin, Left (fileIOErr, Nothing))
 
 -----------------------
 -- Filename Handling --

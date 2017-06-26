@@ -12,10 +12,6 @@ module Highlight.Hrep.Monad
 import Prelude ()
 import Prelude.Compat
 
-import Control.Exception (IOException)
-import Data.ByteString (ByteString)
-import Pipes (Pipe, Producer, (>->), await, each, for, yield)
-
 import Highlight.Common.Error (HighlightErr(..))
 import Highlight.Common.Monad
        -- (CommonHighlightM,
@@ -28,8 +24,6 @@ import Highlight.Common.Monad
        --  getRawRegexM, getRecursiveM, outputConsumer, produerForSingleFile,
        --  runCommonHighlightM, throwRegexCompileErr)
 import Highlight.Common.Options (CommonOptions)
-import Highlight.Common.Pipes (numberedProducer)
-import Highlight.Common.Util (convertStringToRawByteString)
 
 --------------------
 -- The Hrep Monad --
