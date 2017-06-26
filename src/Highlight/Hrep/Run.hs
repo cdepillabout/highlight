@@ -21,8 +21,8 @@ import Highlight.Common.Error (handleErr)
 import Highlight.Common.Options (CommonOptions(..))
 import Highlight.Common.Pipes (stdinLines)
 import Highlight.Hrep.Monad
-       (FilenameHandlingFromFiles(..), HrepM, InputData', Output,
-        compileHighlightRegexWithErr, createInputData', getInputFilenamesM,
+       (FilenameHandlingFromFiles(..), HrepM, InputData, Output,
+        compileHighlightRegexWithErr, createInputData, getInputFilenamesM,
         getRecursiveM, handleInputData, outputConsumer, runHrepM)
 
 run :: CommonOptions -> IO ()
@@ -42,13 +42,13 @@ hrepOutputProducer stdinProducer = do
   regex <- compileHighlightRegexWithErr
   inputFilenames <- getInputFilenamesM
   recursive <- getRecursiveM
-  inputData <- createInputData' recursive inputFilenames stdinProducer
+  inputData <- createInputData recursive inputFilenames stdinProducer
   let outputProducer = getOutputProducer regex inputData
   return outputProducer
 
 getOutputProducer
   :: RE
-  -> InputData' HrepM ()
+  -> InputData HrepM ()
   -> Producer Output HrepM ()
 getOutputProducer regex =
   handleInputData

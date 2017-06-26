@@ -23,7 +23,7 @@ import Pipes.ByteString (stdout)
 import Highlight.Common.Monad.Input
        (FilenameHandlingFromFiles, FileOrigin,
         FileReader(FileReaderErr, FileReaderSuccess),
-        InputData'(InputData'), getFileOriginFromFileReader,
+        InputData(InputData), getFileOriginFromFileReader,
         getFilePathFromFileReader)
 import Highlight.Common.Pipes (stderrConsumer)
 import Highlight.Common.Util (convertStringToRawByteString, whenNonNull)
@@ -43,9 +43,9 @@ handleInputData
         -> m [ByteString]
      )
   -> (ByteString -> IOException -> Maybe IOException -> m [ByteString])
-  -> InputData' m ()
+  -> InputData m ()
   -> Producer Output m ()
-handleInputData stdinF nonErrF errF (InputData' nameHandling producer) =
+handleInputData stdinF nonErrF errF (InputData nameHandling producer) =
   producer >-> evalStateT go (Nothing, 0)
   where
     go

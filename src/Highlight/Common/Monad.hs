@@ -20,7 +20,6 @@ import Control.Monad.Except (ExceptT, MonadError, runExceptT, throwError)
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Reader (MonadReader, ReaderT, runReaderT)
 import Control.Monad.State (MonadState, StateT, evalStateT)
-import Pipes (Producer, next, yield)
 import Text.RE.PCRE
        (RE, SimpleREOptions(MultilineInsensitive, MultilineSensitive),
         compileRegexWith)
@@ -78,36 +77,6 @@ throwHighlightErr = throwError
 
 throwRegexCompileErr :: RawRegex -> CommonHighlightM r s HighlightErr a
 throwRegexCompileErr = throwHighlightErr . HighlightRegexCompileErr
-
------------------------
--- Filename Handling --
------------------------
-
-computeFilenameHandlingFromFiles
-  :: forall a m r.
-     Monad m
-  => Producer (FileOrigin, a) m r
-  -> m (FilenameHandlingFromFiles, Producer (FileOrigin, a) m r)
-computeFilenameHandlingFromFiles producer = do
-  eitherFirstFile <- next producer
-  case eitherFirstFile of
-    Left ret ->
-      return (NoFilename, return ret)
-    Right ((fileOrigin1, a1), producer2) ->
-      case fileOrigin1 of
-        Stdin -> error "Not currenty handling stdin..."
-        FileSpecifiedByUser _ -> do
-          eitherSecondFile <- next producer2
-          case eitherSecondFile of
-            Left ret2 ->
-              return (NoFilename, yield (fileOrigin1, a1) *> return ret2)
-            Right ((fileOrigin2, a2), producer3) ->
-              return
-                ( PrintFilename
-                , yield (fileOrigin1, a1) *> yield (fileOrigin2, a2) *> producer3
-                )
-        FileFoundRecursively _ ->
-          return (PrintFilename, yield (fileOrigin1, a1) *> producer2)
 
 -----------
 -- Regex --

@@ -68,26 +68,26 @@ isFileReaderStdin :: FileReader a -> Bool
 isFileReaderStdin = isFileOriginStdin . getFileOriginFromFileReader
 
 
-createInputData'
+createInputData
   :: forall m.
      MonadIO m
   => Recursive
   -> [InputFilename]
   -> Producer ByteString m ()
-  -> m (InputData' m ())
-createInputData' recursive inputFilenames stdinProducer = do
+  -> m (InputData m ())
+createInputData recursive inputFilenames stdinProducer = do
   let fileOrigins = FileSpecifiedByUser . unInputFilename <$> inputFilenames
   case fileOrigins of
     [] ->
       return $
-        InputData' NoFilename (stdinProducerToFileReader stdinProducer)
+        InputData NoFilename (stdinProducerToFileReader stdinProducer)
     _ -> do
       let fileListProducers = fmap (fileListProducer recursive) fileOrigins
           fileProducer = foldl1 combineApplicatives fileListProducers
       (filenameHandling, newFileProducer) <-
-        computeFilenameHandlingFromFiles' fileProducer
+        computeFilenameHandlingFromFiles fileProducer
       let fileLineProducer = fileReaderHandleToLine newFileProducer
-      return $ InputData' filenameHandling fileLineProducer
+      return $ InputData filenameHandling fileLineProducer
 
 stdinProducerToFileReader
   :: forall x' x a m r.
@@ -100,8 +100,8 @@ stdinProducerToFileReader producer = producer >-> Pipes.map go
     go = FileReaderSuccess Stdin
 {-# INLINABLE stdinProducerToFileReader #-}
 
-data InputData' m a
-  = InputData'
+data InputData m a
+  = InputData
       !FilenameHandlingFromFiles
       !(Producer (FileReader ByteString) m ())
 
@@ -172,12 +172,12 @@ data FilenameHandlingFromFiles
   | PrintFilename
   deriving (Eq, Read, Show)
 
-computeFilenameHandlingFromFiles'
+computeFilenameHandlingFromFiles
   :: forall a m r.
      Monad m
   => Producer (FileReader a) m r
   -> m (FilenameHandlingFromFiles, Producer (FileReader a) m r)
-computeFilenameHandlingFromFiles' producer1 = do
+computeFilenameHandlingFromFiles producer1 = do
   eitherFileReader1 <- next producer1
   case eitherFileReader1 of
     Left ret ->

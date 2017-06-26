@@ -15,8 +15,8 @@ import Prelude.Compat
 import Highlight.Common.Error (HighlightErr(..))
 import Highlight.Common.Monad
        (CommonHighlightM,
-        FilenameHandlingFromFiles(NoFilename, PrintFilename), InputData',
-        Output, compileHighlightRegexWithErr, createInputData',
+        FilenameHandlingFromFiles(NoFilename, PrintFilename), InputData,
+        Output, compileHighlightRegexWithErr, createInputData,
         getInputFilenamesM, getRecursiveM, handleInputData,
         outputConsumer, runCommonHighlightM)
 import Highlight.Common.Options (CommonOptions)
