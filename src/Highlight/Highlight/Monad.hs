@@ -15,6 +15,7 @@ import Prelude.Compat
 
 import Control.Exception (IOException)
 import Control.Lens (view)
+import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Reader (MonadReader)
 import Control.Monad.State (MonadState, StateT, evalStateT, get, modify', put)
 import Control.Monad.Trans.Class (lift)
@@ -99,23 +100,25 @@ handleInputData _ handleNonError handleError (InputDataFile filenameHandling fil
   handleInputDataFile handleNonError handleError filenameHandling fileProducer
 
 handleInputData'
-  :: (ByteString -> HighlightM [ByteString])
-  -> ( FilenameHandlingFromFiles
+  :: forall m.
+     MonadIO m
+  => (ByteString -> m [ByteString])
+  -> (FilenameHandlingFromFiles
         -> ByteString
         -> Int
         -> ByteString
         -> [ByteString]
      )
   -> (ByteString -> IOException -> Maybe IOException -> [ByteString])
-  -> InputData' HighlightM ()
-  -> Producer Output HighlightM ()
+  -> InputData' m ()
+  -> Producer Output m ()
 handleInputData' stdinF nonErrF errF (InputData' nameHandling producer) =
   producer >-> evalStateT go (Nothing, 0)
   where
     go
       :: StateT
           (Maybe FileOrigin, ColorNum)
-          (Pipe (FileReader ByteString) Output HighlightM)
+          (Pipe (FileReader ByteString) Output m)
           ()
     go = do
       fileReader <- lift await
@@ -123,16 +126,14 @@ handleInputData' stdinF nonErrF errF (InputData' nameHandling producer) =
           fileOrigin = getFileOriginFromFileReader fileReader
       colorNumIfNewFile <- getColorNumIfNewFileM fileOrigin
       case maybeFilePath of
-        -- stdin
+        -- The current @'FileReader' 'ByteString'@ is from stdin.
         Nothing ->
           case fileReader of
             FileReaderSuccess _ line -> do
               outByteStrings <- lift . lift $ stdinF line
               sendToStdoutWhenNonNull outByteStrings fileOrigin
-            -- We should never have an error reading from stdin, so just
-            -- do nothing.
             FileReaderErr _ _ _ -> return ()
-        -- normal file
+        -- The current @'FileReader' 'ByteString'@ is from a normal file.
         Just filePath -> do
           byteStringFilePath <- convertStringToRawByteString filePath
           case fileReader of
