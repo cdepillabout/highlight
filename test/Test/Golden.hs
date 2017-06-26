@@ -216,7 +216,7 @@ testHighlightFromGrep =
           & rawRegexLens .~ "and"
           & colorGrepFilenamesLens .~ ColorGrepFilenames
       testName =
-        "`cat test/golden/test-files/grep-output | " <>
+        "`cat test/golden/test-files/from-grep | " <>
         "highlight --from-grep and`"
   in testStderrAndStdout
       testName
