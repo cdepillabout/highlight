@@ -80,6 +80,7 @@ die
 die exitCode msg = do
   putStrLn $ "ERROR: " <> msg
   exitWith $ ExitFailure exitCode
+{-# INLINABLE die #-}
 
 -- | Perform an action when a list is non-null.
 --
@@ -91,4 +92,3 @@ whenNonNull :: Monad m => [a] -> m () -> m ()
 whenNonNull [] _ = return ()
 whenNonNull _ action = action
 {-# INLINABLE whenNonNull #-}
-

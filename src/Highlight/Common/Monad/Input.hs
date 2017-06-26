@@ -67,6 +67,10 @@ getFilePathFromFileReader =
 isFileReaderStdin :: FileReader a -> Bool
 isFileReaderStdin = isFileOriginStdin . getFileOriginFromFileReader
 
+data InputData m a
+  = InputData
+      !FilenameHandlingFromFiles
+      !(Producer (FileReader ByteString) m ())
 
 createInputData
   :: forall m.
@@ -99,11 +103,6 @@ stdinProducerToFileReader producer = producer >-> Pipes.map go
     go :: a -> FileReader a
     go = FileReaderSuccess Stdin
 {-# INLINABLE stdinProducerToFileReader #-}
-
-data InputData m a
-  = InputData
-      !FilenameHandlingFromFiles
-      !(Producer (FileReader ByteString) m ())
 
 fileReaderHandleToLine
   :: forall m x' x.

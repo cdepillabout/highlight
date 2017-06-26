@@ -16,4 +16,3 @@ data HighlightErr
 handleErr :: HighlightErr -> IO a
 handleErr (HighlightRegexCompileErr (RawRegex regex)) =
   die 10 $ "Regex not well formed: " <> regex
-

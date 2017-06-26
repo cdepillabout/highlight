@@ -36,7 +36,6 @@ allColorsList =
 replaceInRedByteString :: ByteString
 replaceInRedByteString = colorVividRedBold <> "$0" <> colorReset
 
-
 -----------------------
 -- Vivid Bold Colors --
 -----------------------
