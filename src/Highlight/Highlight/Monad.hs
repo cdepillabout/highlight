@@ -171,6 +171,7 @@ sendToStderrWhenNonNull outByteStrings =
 whenNonNull :: Monad m => [a] -> m () -> m ()
 whenNonNull [] _ = return ()
 whenNonNull _ action = action
+{-# INLINABLE whenNonNull #-}
 
 updateColorNumM
   :: MonadState (Maybe FileOrigin, ColorNum) m => FileOrigin -> m ()
