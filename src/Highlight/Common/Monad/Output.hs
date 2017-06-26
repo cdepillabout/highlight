@@ -11,10 +11,8 @@ import Prelude ()
 import Prelude.Compat
 
 import Control.Exception (IOException)
-import Control.Lens (view)
 import Control.Monad.IO.Class (MonadIO)
-import Control.Monad.Reader (MonadReader)
-import Control.Monad.State (MonadState, StateT, evalStateT, get, modify', put)
+import Control.Monad.State (MonadState, StateT, evalStateT, get, modify')
 import Control.Monad.Trans.Class (lift)
 import Data.ByteString (ByteString)
 import Pipes
@@ -22,13 +20,9 @@ import Pipes
         yield)
 import Pipes.ByteString (stdout)
 
-import Highlight.Common.Error (HighlightErr(..))
 import Highlight.Common.Monad.Input
 import Highlight.Common.Pipes (stderrConsumer)
 import Highlight.Common.Util (convertStringToRawByteString, whenNonNull)
-import Highlight.Highlight.Options
-       (ColorGrepFilenames(ColorGrepFilenames, DoNotColorGrepFileNames),
-        HasColorGrepFilenames(colorGrepFilenamesLens), Options(..))
 
 -----------------------------
 -- Convert input to Output --

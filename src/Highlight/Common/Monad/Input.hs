@@ -11,25 +11,16 @@ import Prelude ()
 import Prelude.Compat
 
 import Control.Exception (IOException, try)
-import Control.Lens (view)
-import Control.Monad.Except (ExceptT, MonadError, runExceptT, throwError)
 import Control.Monad.IO.Class (MonadIO(liftIO))
-import Control.Monad.Reader (MonadReader, ReaderT, runReaderT)
-import Control.Monad.State (MonadState, StateT, evalStateT)
 import Data.ByteString (ByteString)
 import Data.List (sort)
 import Pipes
-       (Consumer, Pipe, Producer, Producer', Proxy, (>->), await, each, for,
-        next, yield)
-import Pipes.ByteString (stdout)
+       (Pipe, Producer, Producer', Proxy, (>->), await, each, for, next,
+        yield)
 import Pipes.Prelude (toListM)
 import qualified Pipes.Prelude as Pipes
 import System.IO (Handle)
-import Text.RE.PCRE
-       (RE, SimpleREOptions(MultilineInsensitive, MultilineSensitive),
-        compileRegexWith)
 
-import Highlight.Common.Error (HighlightErr(..))
 import Highlight.Common.Options
        (InputFilename(unInputFilename), Recursive(Recursive))
 import Highlight.Common.Pipes (childOf, fromHandleLines)

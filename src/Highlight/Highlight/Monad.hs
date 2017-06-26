@@ -13,14 +13,10 @@ module Highlight.Highlight.Monad
 import Prelude ()
 import Prelude.Compat
 
-import Control.Exception (IOException)
 import Control.Lens (view)
-import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Reader (MonadReader)
-import Control.Monad.State (MonadState, StateT, evalStateT, get, modify', put)
-import Control.Monad.Trans.Class (lift)
+import Control.Monad.State (MonadState, get, put)
 import Data.ByteString (ByteString)
-import Pipes (Pipe, Producer, Producer', Proxy, (>->), await, each, yield)
 
 import Highlight.Common.Error (HighlightErr(..))
 import Highlight.Common.Monad
@@ -33,7 +29,6 @@ import Highlight.Common.Monad
        --  getFilePathFromFileOrigin, getIgnoreCaseM, getInputFilenamesM,
        --  getRawRegexM, getRecursiveM, outputConsumer, produerForSingleFile,
        --  runCommonHighlightM, throwRegexCompileErr)
-import Highlight.Common.Util (convertStringToRawByteString)
 import Highlight.Highlight.Options
        (ColorGrepFilenames(ColorGrepFilenames, DoNotColorGrepFileNames),
         HasColorGrepFilenames(colorGrepFilenamesLens), Options(..))
