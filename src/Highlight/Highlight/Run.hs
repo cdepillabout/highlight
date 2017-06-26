@@ -24,10 +24,10 @@ import Highlight.Common.Error (handleErr)
 import Highlight.Common.Pipes (stdinLines)
 import Highlight.Highlight.Monad
        (FilenameHandlingFromStdin(..), FilenameHandlingFromFiles(..),
-        FromGrepFilenameState, HighlightM, InputData, InputData', Output,
-        compileHighlightRegexWithErr, createInputData, createInputData',
+        FromGrepFilenameState, HighlightM, InputData', Output,
+        compileHighlightRegexWithErr, createInputData',
         filenameHandlingFromStdinM, getInputFilenamesM, getRecursiveM,
-        handleInputData, handleInputData', outputConsumer, runHighlightM,
+        handleInputData', outputConsumer, runHighlightM,
         updateFilename)
 import Highlight.Highlight.Options (HasColorGrepFilenames, Options(..))
 
@@ -41,15 +41,6 @@ prog = do
   outputProducer <- highlightOutputProducer' stdinLines
   runOutputProducer outputProducer
 
-highlightOutputProducer
-  :: Producer ByteString HighlightM ()
-  -> HighlightM (Producer Output HighlightM ())
-highlightOutputProducer stdinProducer = do
-  regex <- compileHighlightRegexWithErr
-  inputData <- createInputData stdinProducer
-  let outputProducer = getOutputProducer regex inputData
-  return outputProducer
-
 highlightOutputProducer'
   :: Producer ByteString HighlightM ()
   -> HighlightM (Producer Output HighlightM ())
@@ -58,25 +49,14 @@ highlightOutputProducer' stdinProducer = do
   inputFilenames <- getInputFilenamesM
   recursive <- getRecursiveM
   inputData <- createInputData' recursive inputFilenames stdinProducer
-  let outputProducer = getOutputProducer' regex inputData
+  let outputProducer = getOutputProducer regex inputData
   return outputProducer
 
 getOutputProducer
   :: RE
-  -> InputData HighlightM ()
-  -> Producer Output HighlightM ()
-getOutputProducer regex inputData =
-  handleInputData
-    (handleStdinInput regex)
-    (handleFileInput regex)
-    handleError
-    inputData
-
-getOutputProducer'
-  :: RE
   -> InputData' HighlightM ()
   -> Producer Output HighlightM ()
-getOutputProducer' regex =
+getOutputProducer regex =
   handleInputData'
     (handleStdinInput' regex)
     (handleFileInput regex)

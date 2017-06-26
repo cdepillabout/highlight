@@ -20,7 +20,7 @@ import Control.Monad.Reader (MonadReader)
 import Control.Monad.State (MonadState, StateT, evalStateT, get, modify', put)
 import Control.Monad.Trans.Class (lift)
 import Data.ByteString (ByteString)
-import Pipes (Pipe, Producer, Producer', Proxy, (>->), await, each, for, yield)
+import Pipes (Pipe, Producer, Producer', Proxy, (>->), await, each, yield)
 
 import Highlight.Common.Error (HighlightErr(..))
 import Highlight.Common.Monad
@@ -33,7 +33,6 @@ import Highlight.Common.Monad
        --  getFilePathFromFileOrigin, getIgnoreCaseM, getInputFilenamesM,
        --  getRawRegexM, getRecursiveM, outputConsumer, produerForSingleFile,
        --  runCommonHighlightM, throwRegexCompileErr)
-import Highlight.Common.Pipes (numberedProducer)
 import Highlight.Common.Util (convertStringToRawByteString)
 import Highlight.Highlight.Options
        (ColorGrepFilenames(ColorGrepFilenames, DoNotColorGrepFileNames),
@@ -82,22 +81,6 @@ getColorGrepFilenamesM = view colorGrepFilenamesLens
 -----------
 -- Pipes --
 -----------
-
-handleInputData
-  :: (FilenameHandlingFromStdin -> ByteString -> HighlightM [ByteString])
-  -> ( FilenameHandlingFromFiles
-        -> ByteString
-        -> Int
-        -> ByteString
-        -> [ByteString]
-     )
-  -> (ByteString -> IOException -> Maybe IOException -> [ByteString])
-  -> InputData HighlightM ()
-  -> Producer Output HighlightM ()
-handleInputData stdinFunc _ _ (InputDataStdin producer) =
-  handleInputDataStdin stdinFunc producer
-handleInputData _ handleNonError handleError (InputDataFile filenameHandling fileProducer) =
-  handleInputDataFile handleNonError handleError filenameHandling fileProducer
 
 handleInputData'
   :: forall m.
@@ -220,117 +203,6 @@ sendWithNewLine byteStringToOutput byteStrings = do
     (_:_) -> do
       each outputs
       yield $ byteStringToOutput "\n"
-
--- data InputData' m a
---   = InputData'
---       !FilenameHandlingFromFiles
---       !(Producer (FileReader ByteString) m ())
---
--- data FileReader a
---   = FileReaderSuccess !FileOrigin !a
---   | FileReaderErr !FileOrigin !IOException !(Maybe IOException)
---   deriving (Eq, Show)
---
--- data FileOrigin
---   = FileSpecifiedByUser FilePath
---   | FileFoundRecursively FilePath
---   | StdIn
---   deriving (Eq, Read, Show)
---
--- getFilePathFromFileOrigin :: FileOrigin -> Maybe FilePath
---
--- fileOriginToString :: FileOrigin -> String
-
-
-handleInputDataStdin
-  :: ( FilenameHandlingFromStdin
-        -> ByteString
-        -> HighlightM [ByteString]
-     )
-  -> Producer ByteString HighlightM ()
-  -> Producer Output HighlightM ()
-handleInputDataStdin f producer = do
-  filenameHandling <- filenameHandlingFromStdinM
-  producer >-> addNewline (f filenameHandling)
-  where
-    addNewline
-      :: forall m. Monad m
-      => (ByteString -> m [ByteString])
-      -> Pipe ByteString Output m ()
-    addNewline func = go
-      where
-        go :: Pipe ByteString Output m ()
-        go = do
-          inputLine <- await
-          modifiedLine <- lift $ func inputLine >>= return . fmap OutputStdout
-          case modifiedLine of
-            [] -> go
-            (_:_) -> do
-              each modifiedLine
-              yield $ OutputStdout "\n"
-              go
-
-handleInputDataFile
-  :: ( FilenameHandlingFromFiles
-        -> ByteString
-        -> Int
-        -> ByteString
-        -> [ByteString]
-     )
-  -> (ByteString -> IOException -> Maybe IOException -> [ByteString])
-  -> FilenameHandlingFromFiles
-  -> FileProducer HighlightM ()
-  -> Producer Output HighlightM ()
-handleInputDataFile handleNonError handleError filenameHandling fileProducer =
-  for (numberedProducer fileProducer) g
-  where
-    g
-      :: ( Int
-         , FileOrigin
-         , Either
-            (IOException, Maybe IOException)
-            (Producer ByteString HighlightM ())
-         )
-      -> Producer Output HighlightM ()
-    g (_, fileOrigin, Left (ioerr, maybeioerr)) = do
-      let maybeFilePath = getFilePathFromFileOrigin fileOrigin
-      case maybeFilePath of
-        -- This is standard input.  Not currently handling it.
-        Nothing -> return ()
-        Just filePath -> do
-          byteStringFilePath <- convertStringToRawByteString filePath
-          let outputLines =
-                fmap OutputStderr $ handleError byteStringFilePath ioerr maybeioerr
-          each outputLines
-          yield $ OutputStderr "\n"
-    g (fileNumber, fileOrigin, Right producer) = do
-      let maybeFilePath = getFilePathFromFileOrigin fileOrigin
-      case maybeFilePath of
-        -- This is standard input.  Not currently handling it.
-        Nothing -> return ()
-        Just filePath -> do
-          byteStringFilePath <- convertStringToRawByteString filePath
-          producer >-> bababa byteStringFilePath
-      where
-        bababa :: ByteString -> Pipe ByteString Output HighlightM ()
-        bababa filePath = go
-          where
-            go :: Pipe ByteString Output HighlightM ()
-            go = do
-              inputLine <- await
-              let outputLines =
-                    fmap OutputStdout $
-                      handleNonError
-                        filenameHandling
-                        filePath
-                        fileNumber
-                        inputLine
-              case outputLines of
-                [] -> go
-                (_:_) -> do
-                  each outputLines
-                  yield $ OutputStdout "\n"
-                  go
 
 -----------------------
 -- Filename Handling --
