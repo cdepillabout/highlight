@@ -33,12 +33,13 @@ import Highlight.Util
 --
 -- >>> import Pipes.Prelude (toListM)
 -- >>> import System.IO (IOMode(ReadMode), openBinaryFile)
+-- >>> let goodFilePath = "test/golden/test-files/file2"
 --
 -- Examples:
 --
--- >>> handle <- openBinaryFile "test/golden/test-files/file1" ReadMode
+-- >>> handle <- openBinaryFile goodFilePath ReadMode
 -- >>> fmap head . toListM $ fromHandleLines handle
--- "The parallel novel is a piece of literature written within, derived from, or"
+-- "Proud Pour is a wine company that funds solutions to local environmental"
 fromHandleLines :: forall m. MonadIO m => Handle -> Producer' ByteString m ()
 fromHandleLines handle = go
   where
@@ -55,6 +56,31 @@ stdinLines :: forall m. MonadIO m => Producer' ByteString m ()
 stdinLines = fromHandleLines stdin
 {-# INLINABLE stdinLines #-}
 
+-- | Try calling 'fromHandleLines' on the 'Handle' obtained from
+-- 'openFilePathForReading'.
+--
+-- Setup for examples:
+--
+-- >>> import Pipes (Producer)
+-- >>> import Pipes.Prelude (toListM)
+--
+-- >>> let t a = a :: IO (Either IOException (Producer ByteString IO ()))
+-- >>> let goodFilePath = "test/golden/test-files/file2"
+-- >>> let badFilePath = "thisfiledoesnotexist"
+-- >>> let handleErr err = error $ "got following error: " `mappend` show err
+--
+-- Example:
+--
+-- >>> eitherProducer <- t $ fromFileLines goodFilePath
+-- >>> let producer = either handleErr id eitherProducer
+-- >>> fmap head $ toListM producer
+-- "Proud Pour is a wine company that funds solutions to local environmental"
+--
+-- Returns 'IOException' if there was an error when opening the file.
+--
+-- >>> eitherProducer <- t $ fromFileLines badFilePath
+-- >>> either print (const $ return ()) eitherProducer
+-- thisfiledoesnotexist: openBinaryFile: does not exist ...
 fromFileLines
   :: forall m n x' x.
      (MonadIO m, MonadIO n)
@@ -71,6 +97,8 @@ fromFileLines filePath = do
 --
 -- If an 'ePIPE' error is thrown, then just 'return' @()@.  If any other error
 -- is thrown, rethrow the error.
+--
+-- Example:
 stderrConsumer :: forall m. MonadIO m => Consumer' ByteString m ()
 stderrConsumer = go
   where
