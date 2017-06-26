@@ -28,6 +28,17 @@ import Highlight.Util
 -- This function will close the 'Handle' if the end of the file is reached.
 -- However, if an error was thrown while reading input from the 'Handle', the
 -- 'Handle' is not closed.
+--
+-- Setup for examples:
+--
+-- >>> import Pipes.Prelude (toListM)
+-- >>> import System.IO (IOMode(ReadMode), openBinaryFile)
+--
+-- Examples:
+--
+-- >>> handle <- openBinaryFile "test/golden/test-files/file1" ReadMode
+-- >>> fmap head . toListM $ fromHandleLines handle
+-- "The parallel novel is a piece of literature written within, derived from, or"
 fromHandleLines :: forall m. MonadIO m => Handle -> Producer' ByteString m ()
 fromHandleLines handle = go
   where
@@ -39,6 +50,7 @@ fromHandleLines handle = go
         Right line -> yield line *> go
 {-# INLINABLE fromHandleLines #-}
 
+-- | Call 'fromHandleLines' on 'stdin'.
 stdinLines :: forall m. MonadIO m => Producer' ByteString m ()
 stdinLines = fromHandleLines stdin
 {-# INLINABLE stdinLines #-}
