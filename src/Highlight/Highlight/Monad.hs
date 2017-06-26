@@ -19,7 +19,7 @@ import Control.Monad.Reader (MonadReader)
 import Control.Monad.State (MonadState, StateT, evalStateT, get, modify', put)
 import Control.Monad.Trans.Class (lift)
 import Data.ByteString (ByteString)
-import Pipes (Pipe, Producer, Producer', (>->), await, each, for, yield)
+import Pipes (Pipe, Producer, Producer', Proxy, (>->), await, each, for, yield)
 
 import Highlight.Common.Error (HighlightErr(..))
 import Highlight.Common.Monad
@@ -132,13 +132,7 @@ handleInputData' stdinF nonErrF errF (InputData' nameHandling producer) = do
               case fileReader of
                 FileReaderSuccess _ line -> do
                   outByteStrings <- lift . lift $ stdinF stdinHandling line
-                  -- TODO: Since this is exactly the same as the code below,
-                  -- maybe try to factor it out.
-                  case outByteStrings of
-                    [] -> return ()
-                    (_:_) -> do
-                      lift $ sendToStdoutWithNewLine outByteStrings
-                      updateColorNumM fileOrigin
+                  sendToStdoutWhenNonNull outByteStrings fileOrigin
                 -- We should never have an error reading from stdin, so just
                 -- do nothing.
                 FileReaderErr _ _ _ -> return ()
@@ -147,11 +141,8 @@ handleInputData' stdinF nonErrF errF (InputData' nameHandling producer) = do
               byteStringFilePath <- convertStringToRawByteString filePath
               case fileReader of
                 FileReaderErr _ ioerr maybeioerr -> do
-                  let outByteStrings =
-                        errF byteStringFilePath ioerr maybeioerr
-                  case outByteStrings of
-                    [] -> return ()
-                    (_:_) -> lift $ sendToStderrWithNewLine outByteStrings
+                  let outByteStrings = errF byteStringFilePath ioerr maybeioerr
+                  sendToStderrWhenNonNull outByteStrings
                 FileReaderSuccess _ inputLine -> do
                   let outByteStrings =
                         nonErrF
@@ -159,12 +150,27 @@ handleInputData' stdinF nonErrF errF (InputData' nameHandling producer) = do
                           byteStringFilePath
                           colorNumIfNewFile
                           inputLine
-                  case outByteStrings of
-                    [] -> return ()
-                    (_:_) -> do
-                      lift $ sendToStdoutWithNewLine outByteStrings
-                      updateColorNumM fileOrigin
+                  sendToStdoutWhenNonNull outByteStrings fileOrigin
           f
+
+sendToStdoutWhenNonNull
+  :: Monad m
+  => [ByteString]
+  -> FileOrigin
+  -> StateT (Maybe FileOrigin, ColorNum) (Proxy x' x () Output m) ()
+sendToStdoutWhenNonNull outByteStrings fileOrigin =
+  whenNonNull outByteStrings $ do
+    lift $ sendToStdoutWithNewLine outByteStrings
+    updateColorNumM fileOrigin
+
+sendToStderrWhenNonNull
+  :: Monad m => [ByteString] -> StateT s (Proxy x' x () Output m) ()
+sendToStderrWhenNonNull outByteStrings =
+  whenNonNull outByteStrings . lift $ sendToStderrWithNewLine outByteStrings
+
+whenNonNull :: Monad m => [a] -> m () -> m ()
+whenNonNull [] _ = return ()
+whenNonNull _ action = action
 
 updateColorNumM
   :: MonadState (Maybe FileOrigin, ColorNum) m => FileOrigin -> m ()
