@@ -196,13 +196,16 @@ testHighlightMultiFile =
           & recursiveLens .~ Recursive
           & inputFilenamesLens .~
               [ "test/golden/test-files/dir1"
+              , "test/golden/test-files/empty-file"
               , "test/golden/test-files/dir2"
               ]
       testName =
         "`touch 'test/golden/test-files/dir2/unreadable-file' ; " <>
         "chmod 0 'test/golden/test-files/dir2/unreadable-file' ; " <>
         "highlight --ignore-case --recursive and " <>
-          "'test/golden/test-files/dir1' 'test/golden/test-files/dir2' ; " <>
+          "'test/golden/test-files/dir1' " <>
+          "'test/golden/test-files/empty-file' " <>
+          "'test/golden/test-files/dir2' ; " <>
         "rm -rf 'test/golden/test-files/dir2/unreadable-file'`"
   in testStderrAndStdout
       testName
@@ -270,13 +273,16 @@ testHrepMultiFile =
           & recursiveLens .~ Recursive
           & inputFilenamesLens .~
               [ "test/golden/test-files/dir1"
+              , "test/golden/test-files/empty-file"
               , "test/golden/test-files/dir2"
               ]
       testName =
         "`touch 'test/golden/test-files/dir2/unreadable-file' ; " <>
         "chmod 0 'test/golden/test-files/dir2/unreadable-file' ; " <>
         "hrep --ignore-case --recursive as " <>
-          "'test/golden/test-files/dir1' 'test/golden/test-files/dir2' ; " <>
+          "'test/golden/test-files/dir1' " <>
+          "'test/golden/test-files/empty-file' " <>
+          "'test/golden/test-files/dir2' ; " <>
         "rm -rf 'test/golden/test-files/dir2/unreadable-file'`"
   in testStderrAndStdout
       testName
