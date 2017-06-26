@@ -16,7 +16,7 @@ import Prelude.Compat
 
 import Control.Exception (IOException)
 import Control.Monad.IO.Class (MonadIO)
-import Control.Monad.State (MonadState, StateT, evalStateT, get, modify')
+import Control.Monad.State (MonadState, StateT, evalStateT, get)
 import Control.Monad.Trans.Class (lift)
 import Data.ByteString (ByteString)
 import Pipes
@@ -30,7 +30,8 @@ import Highlight.Common.Monad.Input
         InputData(InputData), getFileOriginFromFileReader,
         getFilePathFromFileReader)
 import Highlight.Pipes (stderrConsumer)
-import Highlight.Util (convertStringToRawByteString, whenNonNull)
+import Highlight.Util
+       (convertStringToRawByteString, modify', whenNonNull)
 
 -----------------------------
 -- Convert input to Output --

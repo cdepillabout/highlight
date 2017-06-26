@@ -5,6 +5,7 @@ import Prelude.Compat
 
 import Control.Exception (IOException, try)
 import Control.Monad.IO.Class (MonadIO(liftIO))
+import Control.Monad.State (MonadState, get, put)
 import Data.ByteString (ByteString)
 import Data.ByteString.Unsafe (unsafePackMallocCStringLen)
 import Data.Semigroup (Semigroup, (<>))
@@ -86,3 +87,17 @@ whenNonNull :: Monad m => [a] -> m () -> m ()
 whenNonNull [] _ = return ()
 whenNonNull _ action = action
 {-# INLINABLE whenNonNull #-}
+
+
+-- | A variant of 'modify' in which the computation is strict in the
+-- new state.
+--
+-- * @'modify'' f = 'get' >>= (('$!') 'put' . f)@
+--
+-- This is used because 'modify'' is not available in the @tranformers-0.3.0.0@
+-- package.
+modify' :: MonadState s m => (s -> s) -> m ()
+modify' f = do
+  s <- get
+  put $! f s
+{-# INLINE modify' #-}
