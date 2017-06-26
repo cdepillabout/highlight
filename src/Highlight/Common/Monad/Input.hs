@@ -1,5 +1,4 @@
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -32,13 +31,8 @@ import Text.RE.PCRE
 
 import Highlight.Common.Error (HighlightErr(..))
 import Highlight.Common.Options
-       (HasIgnoreCase(ignoreCaseLens),
-        HasInputFilenames(inputFilenamesLens), HasRecursive(recursiveLens),
-        HasRawRegex(rawRegexLens), IgnoreCase(DoNotIgnoreCase, IgnoreCase),
-        InputFilename(unInputFilename), RawRegex(RawRegex),
-        Recursive(Recursive))
-import Highlight.Common.Pipes
-       (childOf, fromHandleLines, stderrConsumer)
+       (InputFilename(unInputFilename), Recursive(Recursive))
+import Highlight.Common.Pipes (childOf, fromHandleLines)
 import Highlight.Common.Util
        (combineApplicatives, openFilePathForReading)
 
