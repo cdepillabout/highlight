@@ -63,6 +63,10 @@ closeHandleIfEOFOrThrow handle ioerr = liftIO $ do
 {-# INLINABLE closeHandleIfEOFOrThrow #-}
 
 -- | Call 'exitWith' with 'ExitFailure'
+--
+-- >>> die 10 "message"
+-- ERROR: message
+-- *** Exception: ExitFailure 10
 die
   :: Int     -- ^ exit code
   -> String  -- ^ error message to print to console
