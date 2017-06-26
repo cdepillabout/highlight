@@ -53,6 +53,7 @@ fromFileLines filePath = do
   case eitherHandle of
     Left ioerr -> return $ Left ioerr
     Right handle -> return . Right $ fromHandleLines handle
+{-# INLINABLE fromFileLines #-}
 
 -- | Output 'ByteString's to 'stderr'.
 --
@@ -71,7 +72,6 @@ stderrConsumer = go
         Left  e  -> liftIO $ throwIO e
         Right () -> go
 {-# INLINABLE stderrConsumer #-}
-
 
 -- | Select all immediate children of the given directory, ignoring @\".\"@ and
 -- @\"..\"@.
