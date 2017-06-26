@@ -11,7 +11,6 @@ import Data.Semigroup (Semigroup, (<>))
 import Foreign.C (newCStringLen)
 import System.Exit (ExitCode(ExitFailure), exitWith)
 import System.IO (Handle, IOMode(ReadMode), hClose, hIsEOF, openBinaryFile)
-import System.IO.Unsafe (unsafePerformIO)
 
 -- | Convert a 'String' to a 'ByteString' with the encoding for the current
 -- locale.
@@ -23,15 +22,6 @@ convertStringToRawByteString str = liftIO $ do
   cStringLen <- newCStringLen str
   unsafePackMallocCStringLen cStringLen
 {-# INLINABLE convertStringToRawByteString #-}
-
--- | Just like 'convertStringToRawByteString' but unsafe.
---
--- >>> unsafeConvertStringToRawByteString "bye"
--- "bye"
-unsafeConvertStringToRawByteString :: String -> ByteString
-unsafeConvertStringToRawByteString =
-  unsafePerformIO . convertStringToRawByteString
-{-# INLINABLE unsafeConvertStringToRawByteString #-}
 
 -- | Open a 'FilePath' in 'ReadMode'.
 --
