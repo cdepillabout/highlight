@@ -98,7 +98,15 @@ fromFileLines filePath = do
 -- If an 'ePIPE' error is thrown, then just 'return' @()@.  If any other error
 -- is thrown, rethrow the error.
 --
+-- Setup for examples:
+--
+-- >>> :set -XOverloadedStrings
+-- >>> import Pipes ((>->), runEffect)
+--
 -- Example:
+--
+-- >>> runEffect $ yield "hello" >-> stderrConsumer
+-- hello
 stderrConsumer :: forall m. MonadIO m => Consumer' ByteString m ()
 stderrConsumer = go
   where
@@ -118,6 +126,16 @@ stderrConsumer = go
 --
 -- Throws an 'IOException' if the directory is not readable or (on Windows) if
 -- the directory is actually a reparse point.
+--
+-- Setup for examples:
+--
+-- >>> import Data.List (sort)
+-- >>> import Pipes.Prelude (toListM)
+--
+-- Examples:
+--
+-- >>> fmap (head . sort) . toListM $ childOf "test/golden/test-files"
+-- "test/golden/test-files/dir1"
 --
 -- TODO: This could be rewritten to be faster by using the Windows- and
 -- Linux-specific functions to only read one file from a directory at a time
