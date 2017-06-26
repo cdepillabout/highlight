@@ -140,8 +140,7 @@ createUnreadableFile = do
         ioError ioerr
 
 makeFileUnreadable :: FilePath -> IO ()
-makeFileUnreadable filePath = do
-  setPermissions filePath emptyPermissions
+makeFileUnreadable filePath = setPermissions filePath emptyPermissions
 
 makeFileReadable :: FilePath -> IO ()
 makeFileReadable filePath =
