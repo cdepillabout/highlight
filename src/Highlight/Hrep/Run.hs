@@ -21,9 +21,9 @@ import Highlight.Common.Error (handleErr)
 import Highlight.Common.Options (CommonOptions(..))
 import Highlight.Common.Pipes (stdinLines)
 import Highlight.Hrep.Monad
-       (FilenameHandlingFromFiles(..), HrepM, InputData, Output,
-        compileHighlightRegexWithErr, createInputData, handleInputData,
-        outputConsumer, runHrepM)
+       (FilenameHandlingFromFiles(..), HrepM, InputData', Output,
+        compileHighlightRegexWithErr, createInputData', getInputFilenamesM,
+        getRecursiveM, handleInputData', outputConsumer, runHrepM)
 
 run :: CommonOptions -> IO ()
 run opts = do
@@ -40,51 +40,49 @@ hrepOutputProducer
   -> HrepM (Producer Output HrepM ())
 hrepOutputProducer stdinProducer = do
   regex <- compileHighlightRegexWithErr
-  inputData <- createInputData stdinProducer
+  inputFilenames <- getInputFilenamesM
+  recursive <- getRecursiveM
+  inputData <- createInputData' recursive inputFilenames stdinProducer
   let outputProducer = getOutputProducer regex inputData
   return outputProducer
 
 getOutputProducer
   :: RE
-  -> InputData HrepM ()
+  -> InputData' HrepM ()
   -> Producer Output HrepM ()
-getOutputProducer regex inputData =
-  handleInputData
+getOutputProducer regex =
+  handleInputData'
     (handleStdinInput regex)
     (handleFileInput regex)
     handleError
-    inputData
 
 runOutputProducer :: Producer Output HrepM () -> HrepM ()
 runOutputProducer producer =
   runEffect $ producer >-> outputConsumer
 
 handleStdinInput
-  :: RE -> ByteString -> [ByteString]
+  :: Monad m
+  => RE -> ByteString -> m [ByteString]
 handleStdinInput regex input =
-  formatNormalLine regex input
+  return $ formatNormalLine regex input
 
 formatNormalLine :: RE -> ByteString -> [ByteString]
 formatNormalLine regex =
   maybeToList . highlightMatchInRed regex
 
 handleFileInput
-  :: RE
+  :: Monad m
+  => RE
   -> FilenameHandlingFromFiles
   -> ByteString
   -> Int
   -> ByteString
-  -> [ByteString]
+  -> m [ByteString]
 handleFileInput regex NoFilename _ _ input =
-  formatNormalLine regex input
+  return $ formatNormalLine regex input
 handleFileInput regex PrintFilename filePath fileNumber input =
-  formatLineWithFilename regex fileNumber filePath input
+  return $ formatLineWithFilename regex fileNumber filePath input
 
--- TODO: The filename highlighting doesn't work here when none of the lines of
--- the file are output.
---
--- It would be nice to preprocess the input so that we don't get any lines that
--- do not match.
 formatLineWithFilename
   :: RE -> Int -> ByteString -> ByteString -> [ByteString]
 formatLineWithFilename regex fileNumber filePath input =
@@ -100,20 +98,15 @@ formatLineWithFilename regex fileNumber filePath input =
       ]
 
 handleError
-  :: ByteString
+  :: Monad m
+  => ByteString
   -> IOException
   -> Maybe IOException
-  -> [ByteString]
+  -> m [ByteString]
 handleError filePath _ (Just _) =
-  [ "Error when trying to read file or directory \""
-  , filePath
-  , "\""
-  ]
+  return ["Error when trying to read file or directory \"", filePath, "\""]
 handleError filePath _ Nothing =
-  [ "Error when trying to read file \""
-  , filePath
-  , "\""
-  ]
+  return ["Error when trying to read file \"", filePath, "\""]
 
 highlightMatchInRed :: RE -> ByteString -> Maybe ByteString
 highlightMatchInRed regex input =
