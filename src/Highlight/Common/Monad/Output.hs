@@ -36,9 +36,9 @@ handleInputData'
         -> ByteString
         -> Int
         -> ByteString
-        -> [ByteString]
+        -> m [ByteString]
      )
-  -> (ByteString -> IOException -> Maybe IOException -> [ByteString])
+  -> (ByteString -> IOException -> Maybe IOException -> m [ByteString])
   -> InputData' m ()
   -> Producer Output m ()
 handleInputData' stdinF nonErrF errF (InputData' nameHandling producer) =
@@ -67,15 +67,17 @@ handleInputData' stdinF nonErrF errF (InputData' nameHandling producer) =
           byteStringFilePath <- convertStringToRawByteString filePath
           case fileReader of
             FileReaderErr _ ioerr maybeioerr -> do
-              let outByteStrings = errF byteStringFilePath ioerr maybeioerr
+              outByteStrings <-
+                lift . lift $ errF byteStringFilePath ioerr maybeioerr
               sendToStderrWhenNonNull outByteStrings
             FileReaderSuccess _ inputLine -> do
-              let outByteStrings =
-                    nonErrF
-                      nameHandling
-                      byteStringFilePath
-                      colorNumIfNewFile
-                      inputLine
+              outByteStrings <-
+                lift . lift $
+                  nonErrF
+                    nameHandling
+                    byteStringFilePath
+                    colorNumIfNewFile
+                    inputLine
               sendToStdoutWhenNonNull outByteStrings fileOrigin
       go
 

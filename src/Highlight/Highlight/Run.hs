@@ -87,22 +87,6 @@ handleStdinInput' regex input = do
           return $
             formatLineWithFilename regex fileNumber filePath lineWithoutColon
 
-handleStdinInput
-  :: MonadState FromGrepFilenameState m
-  => RE -> FilenameHandlingFromStdin -> ByteString -> m [ByteString]
-handleStdinInput regex FromStdinNoFilename input =
-  return $ formatNormalLine regex input
-handleStdinInput regex FromStdinParseFilenameFromGrep input = do
-  let (beforeColon, colonAndAfter) =
-        Data.ByteString.Char8.break (== ':') input
-  if colonAndAfter == empty
-    then return $ formatNormalLine regex input
-    else do
-      let filePath = beforeColon
-          lineWithoutColon = Data.ByteString.Char8.drop 1 colonAndAfter
-      fileNumber <- updateFilename filePath
-      return $ formatLineWithFilename regex fileNumber filePath lineWithoutColon
-
 formatLineWithFilename
   :: RE -> Int -> ByteString -> ByteString -> [ByteString]
 formatLineWithFilename regex fileNumber filePath input =
@@ -119,26 +103,25 @@ formatNormalLine regex input =
   [highlightMatchInRed regex input]
 
 handleFileInput
-  :: RE
+  :: Monad m
+  => RE
   -> FilenameHandlingFromFiles
   -> ByteString
   -> Int
   -> ByteString
-  -> [ByteString]
+  -> m [ByteString]
 handleFileInput regex NoFilename _ _ input =
-  formatNormalLine regex input
+  return $ formatNormalLine regex input
 handleFileInput regex PrintFilename filePath fileNumber input =
-  formatLineWithFilename regex fileNumber filePath input
+  return $ formatLineWithFilename regex fileNumber filePath input
 
 handleError
-  :: ByteString
-  -> IOException
-  -> Maybe IOException
-  -> [ByteString]
+  :: Monad m
+  => ByteString -> IOException -> Maybe IOException -> m [ByteString]
 handleError filePath _ (Just _) =
-  ["Error when trying to read file or directory \"", filePath , "\""]
+  return ["Error when trying to read file or directory \"", filePath , "\""]
 handleError filePath _ Nothing =
-  ["Error when trying to read file \"", filePath , "\""]
+  return ["Error when trying to read file \"", filePath , "\""]
 
 highlightMatchInRed :: RE -> ByteString -> ByteString
 highlightMatchInRed regex input =
