@@ -99,7 +99,7 @@ handleInputData _ handleNonError handleError (InputDataFile filenameHandling fil
   handleInputDataFile handleNonError handleError filenameHandling fileProducer
 
 handleInputData'
-  :: (FilenameHandlingFromStdin -> ByteString -> HighlightM [ByteString])
+  :: (ByteString -> HighlightM [ByteString])
   -> ( FilenameHandlingFromFiles
         -> ByteString
         -> Int
@@ -109,49 +109,45 @@ handleInputData'
   -> (ByteString -> IOException -> Maybe IOException -> [ByteString])
   -> InputData' HighlightM ()
   -> Producer Output HighlightM ()
-handleInputData' stdinF nonErrF errF (InputData' nameHandling producer) = do
-  stdinHandling <- filenameHandlingFromStdinM
-  go stdinHandling
+handleInputData' stdinF nonErrF errF (InputData' nameHandling producer) =
+  producer >-> evalStateT go (Nothing, 0)
   where
-    go :: FilenameHandlingFromStdin -> Producer Output HighlightM ()
-    go stdinHandling = producer >-> evalStateT f (Nothing, 0)
-      where
-        f
-          :: StateT
-                (Maybe FileOrigin, ColorNum)
-                (Pipe (FileReader ByteString) Output HighlightM)
-                ()
-        f = do
-          fileReader <- lift await
-          let maybeFilePath = getFilePathFromFileReader fileReader
-              fileOrigin = getFileOriginFromFileReader fileReader
-          colorNumIfNewFile <- getColorNumIfNewFileM fileOrigin
-          case maybeFilePath of
-            -- stdin
-            Nothing ->
-              case fileReader of
-                FileReaderSuccess _ line -> do
-                  outByteStrings <- lift . lift $ stdinF stdinHandling line
-                  sendToStdoutWhenNonNull outByteStrings fileOrigin
-                -- We should never have an error reading from stdin, so just
-                -- do nothing.
-                FileReaderErr _ _ _ -> return ()
-            -- normal file
-            Just filePath -> do
-              byteStringFilePath <- convertStringToRawByteString filePath
-              case fileReader of
-                FileReaderErr _ ioerr maybeioerr -> do
-                  let outByteStrings = errF byteStringFilePath ioerr maybeioerr
-                  sendToStderrWhenNonNull outByteStrings
-                FileReaderSuccess _ inputLine -> do
-                  let outByteStrings =
-                        nonErrF
-                          nameHandling
-                          byteStringFilePath
-                          colorNumIfNewFile
-                          inputLine
-                  sendToStdoutWhenNonNull outByteStrings fileOrigin
-          f
+    go
+      :: StateT
+          (Maybe FileOrigin, ColorNum)
+          (Pipe (FileReader ByteString) Output HighlightM)
+          ()
+    go = do
+      fileReader <- lift await
+      let maybeFilePath = getFilePathFromFileReader fileReader
+          fileOrigin = getFileOriginFromFileReader fileReader
+      colorNumIfNewFile <- getColorNumIfNewFileM fileOrigin
+      case maybeFilePath of
+        -- stdin
+        Nothing ->
+          case fileReader of
+            FileReaderSuccess _ line -> do
+              outByteStrings <- lift . lift $ stdinF line
+              sendToStdoutWhenNonNull outByteStrings fileOrigin
+            -- We should never have an error reading from stdin, so just
+            -- do nothing.
+            FileReaderErr _ _ _ -> return ()
+        -- normal file
+        Just filePath -> do
+          byteStringFilePath <- convertStringToRawByteString filePath
+          case fileReader of
+            FileReaderErr _ ioerr maybeioerr -> do
+              let outByteStrings = errF byteStringFilePath ioerr maybeioerr
+              sendToStderrWhenNonNull outByteStrings
+            FileReaderSuccess _ inputLine -> do
+              let outByteStrings =
+                    nonErrF
+                      nameHandling
+                      byteStringFilePath
+                      colorNumIfNewFile
+                      inputLine
+              sendToStdoutWhenNonNull outByteStrings fileOrigin
+      go
 
 sendToStdoutWhenNonNull
   :: Monad m

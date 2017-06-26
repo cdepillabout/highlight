@@ -9,6 +9,7 @@ import Prelude ()
 import Prelude.Compat
 
 import Control.Exception (IOException)
+import Control.Monad.Reader (MonadReader)
 import Control.Monad.State (MonadState)
 import Data.ByteString (ByteString, empty)
 import qualified Data.ByteString.Char8
@@ -25,9 +26,10 @@ import Highlight.Highlight.Monad
        (FilenameHandlingFromStdin(..), FilenameHandlingFromFiles(..),
         FromGrepFilenameState, HighlightM, InputData, InputData', Output,
         compileHighlightRegexWithErr, createInputData, createInputData',
-        getInputFilenamesM, getRecursiveM, handleInputData, handleInputData', outputConsumer,
-        runHighlightM, updateFilename)
-import Highlight.Highlight.Options (Options(..))
+        filenameHandlingFromStdinM, getInputFilenamesM, getRecursiveM,
+        handleInputData, handleInputData', outputConsumer, runHighlightM,
+        updateFilename)
+import Highlight.Highlight.Options (HasColorGrepFilenames, Options(..))
 
 run :: Options -> IO ()
 run opts = do
@@ -74,16 +76,37 @@ getOutputProducer'
   :: RE
   -> InputData' HighlightM ()
   -> Producer Output HighlightM ()
-getOutputProducer' regex inputData =
+getOutputProducer' regex =
   handleInputData'
-    (handleStdinInput regex)
+    (handleStdinInput' regex)
     (handleFileInput regex)
     handleError
-    inputData
 
 runOutputProducer :: Producer Output HighlightM () -> HighlightM ()
 runOutputProducer producer =
   runEffect $ producer >-> outputConsumer
+
+handleStdinInput'
+  :: ( HasColorGrepFilenames r
+     , MonadState FromGrepFilenameState m
+     , MonadReader r m
+     )
+  => RE -> ByteString -> m [ByteString]
+handleStdinInput' regex input = do
+  stdinHandling <- filenameHandlingFromStdinM
+  case stdinHandling of
+    FromStdinNoFilename -> return $ formatNormalLine regex input
+    FromStdinParseFilenameFromGrep -> do
+      let (beforeColon, colonAndAfter) =
+            Data.ByteString.Char8.break (== ':') input
+      if colonAndAfter == empty
+        then return $ formatNormalLine regex input
+        else do
+          let filePath = beforeColon
+              lineWithoutColon = Data.ByteString.Char8.drop 1 colonAndAfter
+          fileNumber <- updateFilename filePath
+          return $
+            formatLineWithFilename regex fileNumber filePath lineWithoutColon
 
 handleStdinInput
   :: MonadState FromGrepFilenameState m
