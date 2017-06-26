@@ -5,7 +5,11 @@
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Highlight.Common.Monad.Output where
+module Highlight.Common.Monad.Output
+  ( Output(..)
+  , handleInputData
+  , outputConsumer
+  ) where
 
 import Prelude ()
 import Prelude.Compat

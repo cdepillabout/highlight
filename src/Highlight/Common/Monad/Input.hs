@@ -5,7 +5,15 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes #-}
 
-module Highlight.Common.Monad.Input where
+module Highlight.Common.Monad.Input
+  ( FileOrigin(..)
+  , FileReader(..)
+  , getFileOriginFromFileReader
+  , getFilePathFromFileReader
+  , InputData(..)
+  , createInputData
+  , FilenameHandlingFromFiles(..)
+  ) where
 
 import Prelude ()
 import Prelude.Compat
@@ -42,15 +50,6 @@ getFilePathFromFileOrigin (FileSpecifiedByUser fp) = Just fp
 getFilePathFromFileOrigin (FileFoundRecursively fp) = Just fp
 getFilePathFromFileOrigin Stdin = Nothing
 
-fileOriginToString :: FileOrigin -> String
-fileOriginToString (FileSpecifiedByUser fp) = fp
-fileOriginToString (FileFoundRecursively fp) = fp
-fileOriginToString Stdin = "(standard input)"
-
-isFileOriginStdin :: FileOrigin -> Bool
-isFileOriginStdin Stdin = True
-isFileOriginStdin _ = False
-
 data FileReader a
   = FileReaderSuccess !FileOrigin !a
   | FileReaderErr !FileOrigin !IOException !(Maybe IOException)
@@ -63,9 +62,6 @@ getFileOriginFromFileReader (FileReaderErr origin _ _) = origin
 getFilePathFromFileReader :: FileReader a -> Maybe FilePath
 getFilePathFromFileReader =
   getFilePathFromFileOrigin . getFileOriginFromFileReader
-
-isFileReaderStdin :: FileReader a -> Bool
-isFileReaderStdin = isFileOriginStdin . getFileOriginFromFileReader
 
 data InputData m a
   = InputData
