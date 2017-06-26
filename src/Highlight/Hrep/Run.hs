@@ -19,11 +19,11 @@ import Highlight.Common.Color
         replaceInRedByteString)
 import Highlight.Common.Error (handleErr)
 import Highlight.Common.Options (CommonOptions(..))
-import Highlight.Common.Pipes (stdinLines)
 import Highlight.Hrep.Monad
        (FilenameHandlingFromFiles(..), HrepM, InputData, Output,
         compileHighlightRegexWithErr, createInputData, getInputFilenamesM,
         getRecursiveM, handleInputData, outputConsumer, runHrepM)
+import Highlight.Pipes (stdinLines)
 
 run :: CommonOptions -> IO ()
 run opts = do

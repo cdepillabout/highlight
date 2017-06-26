@@ -29,7 +29,6 @@ import Highlight.Common.Options
        (CommonOptions, IgnoreCase(IgnoreCase), Recursive(Recursive),
         defaultCommonOptions, ignoreCaseLens, inputFilenamesLens,
         rawRegexLens, recursiveLens)
-import Highlight.Common.Pipes (fromFileLines, stdinLines)
 import Highlight.Highlight.Monad (HighlightM, runHighlightM)
 import Highlight.Highlight.Options
        (ColorGrepFilenames(ColorGrepFilenames), Options,
@@ -37,6 +36,7 @@ import Highlight.Highlight.Options
 import Highlight.Highlight.Run (highlightOutputProducer)
 import Highlight.Hrep.Monad (HrepM, runHrepM)
 import Highlight.Hrep.Run (hrepOutputProducer)
+import Highlight.Pipes (fromFileLines, stdinLines)
 
 runHighlightTestWithStdin
   :: Options

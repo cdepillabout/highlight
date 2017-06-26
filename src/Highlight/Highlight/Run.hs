@@ -20,7 +20,6 @@ import Highlight.Common.Color
        (colorForFileNumber, colorReset, colorVividWhiteBold,
         replaceInRedByteString)
 import Highlight.Common.Error (handleErr)
-import Highlight.Common.Pipes (stdinLines)
 import Highlight.Highlight.Monad
        (FilenameHandlingFromStdin(..), FilenameHandlingFromFiles(..),
         FromGrepFilenameState, HighlightM, InputData, Output,
@@ -29,6 +28,7 @@ import Highlight.Highlight.Monad
         handleInputData, outputConsumer, runHighlightM,
         updateFilename)
 import Highlight.Highlight.Options (HasColorGrepFilenames, Options(..))
+import Highlight.Pipes (stdinLines)
 
 run :: Options -> IO ()
 run opts = do
