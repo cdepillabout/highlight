@@ -37,13 +37,13 @@ run opts = do
 
 prog :: HighlightM ()
 prog = do
-  outputProducer <- highlightOutputProducer' stdinLines
+  outputProducer <- highlightOutputProducer stdinLines
   runOutputProducer outputProducer
 
-highlightOutputProducer'
+highlightOutputProducer
   :: Producer ByteString HighlightM ()
   -> HighlightM (Producer Output HighlightM ())
-highlightOutputProducer' stdinProducer = do
+highlightOutputProducer stdinProducer = do
   regex <- compileHighlightRegexWithErr
   inputFilenames <- getInputFilenamesM
   recursive <- getRecursiveM
@@ -57,7 +57,7 @@ getOutputProducer
   -> Producer Output HighlightM ()
 getOutputProducer regex =
   handleInputData
-    (handleStdinInput' regex)
+    (handleStdinInput regex)
     (handleFileInput regex)
     handleError
 
@@ -65,13 +65,13 @@ runOutputProducer :: Producer Output HighlightM () -> HighlightM ()
 runOutputProducer producer =
   runEffect $ producer >-> outputConsumer
 
-handleStdinInput'
+handleStdinInput
   :: ( HasColorGrepFilenames r
      , MonadState FromGrepFilenameState m
      , MonadReader r m
      )
   => RE -> ByteString -> m [ByteString]
-handleStdinInput' regex input = do
+handleStdinInput regex input = do
   stdinHandling <- filenameHandlingFromStdinM
   case stdinHandling of
     FromStdinNoFilename -> return $ formatNormalLine regex input
