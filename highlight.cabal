@@ -38,6 +38,8 @@ library
   exposed-modules:     Highlight.Common.Color
                      , Highlight.Common.Error
                      , Highlight.Common.Monad
+                     , Highlight.Common.Monad.Input
+                     , Highlight.Common.Monad.Output
                      , Highlight.Common.Options
                      , Highlight.Common.Pipes
                      , Highlight.Common.Util

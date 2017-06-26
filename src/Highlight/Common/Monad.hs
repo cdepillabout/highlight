@@ -6,7 +6,11 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes #-}
 
-module Highlight.Common.Monad where
+module Highlight.Common.Monad
+  ( module Highlight.Common.Monad
+  , module Highlight.Common.Monad.Input
+  , module Highlight.Common.Monad.Output
+  ) where
 
 import Prelude ()
 import Prelude.Compat
@@ -31,6 +35,8 @@ import Text.RE.PCRE
         compileRegexWith)
 
 import Highlight.Common.Error (HighlightErr(..))
+import Highlight.Common.Monad.Input
+import Highlight.Common.Monad.Output
 import Highlight.Common.Options
        (HasIgnoreCase(ignoreCaseLens),
         HasInputFilenames(inputFilenamesLens), HasRecursive(recursiveLens),
@@ -101,43 +107,6 @@ type FileProducer m a =
     m
     a
 
-data FileOrigin
-  = FileSpecifiedByUser FilePath
-  | FileFoundRecursively FilePath
-  | Stdin
-  deriving (Eq, Read, Show)
-
-getFilePathFromFileOrigin :: FileOrigin -> Maybe FilePath
-getFilePathFromFileOrigin (FileSpecifiedByUser fp) = Just fp
-getFilePathFromFileOrigin (FileFoundRecursively fp) = Just fp
-getFilePathFromFileOrigin Stdin = Nothing
-
-fileOriginToString :: FileOrigin -> String
-fileOriginToString (FileSpecifiedByUser fp) = fp
-fileOriginToString (FileFoundRecursively fp) = fp
-fileOriginToString Stdin = "(standard input)"
-
-isFileOriginStdin :: FileOrigin -> Bool
-isFileOriginStdin Stdin = True
-isFileOriginStdin _ = False
-
-data FileReader a
-  = FileReaderSuccess !FileOrigin !a
-  | FileReaderErr !FileOrigin !IOException !(Maybe IOException)
-  deriving (Eq, Show)
-
-getFileOriginFromFileReader :: FileReader a -> FileOrigin
-getFileOriginFromFileReader (FileReaderSuccess origin _) = origin
-getFileOriginFromFileReader (FileReaderErr origin _ _) = origin
-
-getFilePathFromFileReader :: FileReader a -> Maybe FilePath
-getFilePathFromFileReader =
-  getFilePathFromFileOrigin . getFileOriginFromFileReader
-
-isFileReaderStdin :: FileReader a -> Bool
-isFileReaderStdin = isFileOriginStdin . getFileOriginFromFileReader
-
-
 createInputData
   :: forall r s e.
      (HasInputFilenames r, HasRecursive r)
@@ -156,105 +125,9 @@ createInputData stdinProducer = do
         computeFilenameHandlingFromFiles fileProducer
       return $ InputDataFile filenameHandling newHighlightFileProducer
 
-createInputData'
-  :: forall m.
-     MonadIO m
-  => Recursive
-  -> [InputFilename]
-  -> Producer ByteString m ()
-  -> m (InputData' m ())
-createInputData' recursive inputFilenames stdinProducer = do
-  let fileOrigins = FileSpecifiedByUser . unInputFilename <$> inputFilenames
-  case fileOrigins of
-    [] ->
-      return $
-        InputData' NoFilename (stdinProducerToFileReader stdinProducer)
-    _ -> do
-      let fileListProducers = fmap (fileListProducer recursive) fileOrigins
-          fileProducer = foldl1 combineApplicatives fileListProducers
-      (filenameHandling, newFileProducer) <-
-        computeFilenameHandlingFromFiles' fileProducer
-      let fileLineProducer = fileReaderHandleToLine newFileProducer
-      return $ InputData' filenameHandling fileLineProducer
-
-stdinProducerToFileReader
-  :: forall x' x a m r.
-     Monad m
-  => Proxy x' x () a m r
-  -> Proxy x' x () (FileReader a) m r
-stdinProducerToFileReader producer = producer >-> Pipes.map go
-  where
-    go :: a -> FileReader a
-    go = FileReaderSuccess Stdin
-{-# INLINABLE stdinProducerToFileReader #-}
-
 data InputData m a
   = InputDataStdin !(Producer ByteString m a)
   | InputDataFile !FilenameHandlingFromFiles !(FileProducer m a)
-
-data InputData' m a
-  = InputData'
-      !FilenameHandlingFromFiles
-      !(Producer (FileReader ByteString) m ())
-
-
-fileReaderHandleToLine
-  :: forall m x' x.
-     MonadIO m
-  => Proxy x' x () (FileReader Handle) m ()
-  -> Proxy x' x () (FileReader ByteString) m ()
-fileReaderHandleToLine producer = producer >-> pipe
-  where
-    pipe :: Pipe (FileReader Handle) (FileReader ByteString) m ()
-    pipe = do
-      fileReaderHandle <- await
-      case fileReaderHandle of
-        FileReaderErr fileOrigin fileErr dirErr ->
-          yield $ FileReaderErr fileOrigin fileErr dirErr
-        FileReaderSuccess fileOrigin handle -> do
-          let linesProducer = fromHandleLines handle
-          linesProducer >-> Pipes.map (FileReaderSuccess fileOrigin)
-      pipe
-
-fileListProducer
-  :: forall m.
-     MonadIO m
-  => Recursive
-  -> FileOrigin
-  -> Producer' (FileReader Handle) m ()
-fileListProducer recursive = go
-  where
-    go :: FileOrigin -> Producer' (FileReader Handle) m ()
-    go fileOrigin = do
-      let maybeFilePath = getFilePathFromFileOrigin fileOrigin
-      case maybeFilePath of
-        -- This is standard input.  We don't currently handle this, so just
-        -- return unit.
-        Nothing -> return ()
-        -- This is a normal file.  Not standard input.
-        Just filePath -> do
-          eitherHandle <- openFilePathForReading filePath
-          case eitherHandle of
-            Right handle -> yield $ FileReaderSuccess fileOrigin handle
-            Left fileIOErr ->
-              if recursive == Recursive
-                then do
-                  let fileListM = toListM $ childOf filePath
-                  eitherFileList <- liftIO $ try fileListM
-                  case eitherFileList of
-                    Left dirIOErr ->
-                      yield $
-                        FileReaderErr fileOrigin fileIOErr (Just dirIOErr)
-                    Right fileList -> do
-                      let sortedFileList = sort fileList
-                      let fileOrigins = fmap FileFoundRecursively sortedFileList
-                      let lalas =
-                            fmap
-                              (fileListProducer recursive)
-                              fileOrigins
-                      for (each lalas) id
-                else
-                  yield $ FileReaderErr fileOrigin fileIOErr Nothing
 
 -- | TODO: It would be nice to turn this into two functions, one that just gets
 -- a list of all files to read, and one that creates the 'Producer' that
@@ -298,30 +171,9 @@ produerForSingleFile recursive = go
                 else
                   yield (fileOrigin, Left (fileIOErr, Nothing))
 
-
-data Output
-  = OutputStdout !ByteString
-  | OutputStderr !ByteString
-  deriving (Eq, Read, Show)
-
-outputConsumer :: MonadIO m => Consumer Output m ()
-outputConsumer = do
-  output <- await
-  case output of
-    OutputStdout byteString ->
-      yield byteString >-> stdout
-    OutputStderr byteString ->
-      yield byteString >-> stderrConsumer
-  outputConsumer
-
 -----------------------
 -- Filename Handling --
 -----------------------
-
-data FilenameHandlingFromFiles
-  = NoFilename
-  | PrintFilename
-  deriving (Eq, Read, Show)
 
 computeFilenameHandlingFromFiles
   :: forall a m r.
@@ -348,33 +200,6 @@ computeFilenameHandlingFromFiles producer = do
                 )
         FileFoundRecursively _ ->
           return (PrintFilename, yield (fileOrigin1, a1) *> producer2)
-
-computeFilenameHandlingFromFiles'
-  :: forall a m r.
-     Monad m
-  => Producer (FileReader a) m r
-  -> m (FilenameHandlingFromFiles, Producer (FileReader a) m r)
-computeFilenameHandlingFromFiles' producer1 = do
-  eitherFileReader1 <- next producer1
-  case eitherFileReader1 of
-    Left ret ->
-      return (NoFilename, return ret)
-    Right (fileReader1, producer2) -> do
-      let fileOrigin1 = getFileOriginFromFileReader fileReader1
-      case fileOrigin1 of
-        Stdin -> error "Not currenty handling stdin..."
-        FileSpecifiedByUser _ -> do
-          eitherSecondFile <- next producer2
-          case eitherSecondFile of
-            Left ret2 ->
-              return (NoFilename, yield fileReader1 *> return ret2)
-            Right (fileReader2, producer3) ->
-              return
-                ( PrintFilename
-                , yield fileReader1 *> yield fileReader2 *> producer3
-                )
-        FileFoundRecursively _ ->
-          return (PrintFilename, yield fileReader1 *> producer2)
 
 -----------
 -- Regex --
