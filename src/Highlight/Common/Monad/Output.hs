@@ -21,6 +21,10 @@ import Pipes
 import Pipes.ByteString (stdout)
 
 import Highlight.Common.Monad.Input
+       (FilenameHandlingFromFiles, FileOrigin,
+        FileReader(FileReaderErr, FileReaderSuccess),
+        InputData'(InputData'), getFileOriginFromFileReader,
+        getFilePathFromFileReader)
 import Highlight.Common.Pipes (stderrConsumer)
 import Highlight.Common.Util (convertStringToRawByteString, whenNonNull)
 
