@@ -87,4 +87,4 @@ filenameHandlingFromStdinM
   :: (HasColorGrepFilenames r, MonadReader r m)
   => m FilenameHandlingFromStdin
 filenameHandlingFromStdinM =
-  fmap computeFilenameHandlingFromStdin getColorGrepFilenamesM
+  getColorGrepFilenamesM >>= return . computeFilenameHandlingFromStdin
