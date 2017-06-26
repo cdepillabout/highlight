@@ -20,15 +20,11 @@ import Data.ByteString (ByteString)
 
 import Highlight.Common.Error (HighlightErr(..))
 import Highlight.Common.Monad
-       -- (CommonHighlightM,
-       --  FilenameHandlingFromFiles(NoFilename, PrintFilename),
-       --  FileOrigin(FileFoundRecursively, FileSpecifiedByUser),
-       --  FileProducer, InputData(InputDataFile, InputDataStdin),
-       --  Output(OutputStderr, OutputStdout), compileHighlightRegexWithErr,
-       --  computeFilenameHandlingFromFiles, createInputData,
-       --  getFilePathFromFileOrigin, getIgnoreCaseM, getInputFilenamesM,
-       --  getRawRegexM, getRecursiveM, outputConsumer, produerForSingleFile,
-       --  runCommonHighlightM, throwRegexCompileErr)
+       (CommonHighlightM,
+        FilenameHandlingFromFiles(NoFilename, PrintFilename), InputData',
+        Output, compileHighlightRegexWithErr, createInputData',
+        getInputFilenamesM, getRecursiveM, handleInputData',
+        outputConsumer, runCommonHighlightM)
 import Highlight.Highlight.Options
        (ColorGrepFilenames(ColorGrepFilenames, DoNotColorGrepFileNames),
         HasColorGrepFilenames(colorGrepFilenamesLens), Options(..))
