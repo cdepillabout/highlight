@@ -169,7 +169,7 @@ script:
       stack --no-terminal $ARGS test --bench --no-run-benchmarks --haddock --no-haddock-deps
       ;;
     cabal)
-      cabal install -v --enable-tests --enable-benchmarks --force-reinstalls --ghc-options=-O0 --reorder-goals --max-backjumps=-1 $CABALARGS $PACKAGES
+      cabal install --enable-tests --enable-benchmarks --force-reinstalls --ghc-options=-O0 --reorder-goals --max-backjumps=-1 $CABALARGS $PACKAGES
 
       ORIGDIR=$(pwd)
       for dir in $PACKAGES
@@ -183,8 +183,8 @@ script:
         tar zxfv "$SRC_TGZ"
         cd "$PKGVER"
         cabal configure --enable-tests
-        cabal build -v
-        cabal test -v
+        cabal build
+        cabal test
         cd $ORIGDIR
       done
       ;;
