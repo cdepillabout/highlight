@@ -262,7 +262,7 @@ fileReaderHandleToLine producer = producer >-> pipe
 --
 -- >>> let fileOrigin4 = FileSpecifiedByUser "thisdirdoesnotexist"
 -- >>> toListM $ fileListProducer Recursive fileOrigin4
--- [FileReaderErr (FileSpecifiedByUser "thisdirdoesnotexist") thisdirdoesnotexist: openBinaryFile: does not exist (No such file or directory) (Just thisdirdoesnotexist: getDirectoryContents:openDirStream: does not exist (No such file or directory))]
+-- [FileReaderErr (FileSpecifiedByUser "thisdirdoesnotexist") thisdirdoesnotexist: openBinaryFile: does not exist (No such file or directory) (Just ...)]
 fileListProducer
   :: forall m.
      MonadIO m
