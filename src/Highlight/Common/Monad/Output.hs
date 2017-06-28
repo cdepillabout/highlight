@@ -75,7 +75,7 @@ handleInputData stdinF nonErrF errF (InputData nameHandling producer) =
           case fileReader of
             FileReaderSuccess _ line -> do
               outByteStrings <- lift . lift $ stdinF line
-              sendToStdoutWhenNonNull outByteStrings fileOrigin
+              toStdoutWhenNonNull outByteStrings fileOrigin
             FileReaderErr _ _ _ -> return ()
         -- The current @'FileReader' 'ByteString'@ is from a normal file.
         Just filePath -> do
@@ -84,7 +84,7 @@ handleInputData stdinF nonErrF errF (InputData nameHandling producer) =
             FileReaderErr _ ioerr maybeioerr -> do
               outByteStrings <-
                 lift . lift $ errF byteStringFilePath ioerr maybeioerr
-              sendToStderrWhenNonNull outByteStrings
+              toStderrWhenNonNull outByteStrings
             FileReaderSuccess _ inputLine -> do
               outByteStrings <-
                 lift . lift $
@@ -93,23 +93,23 @@ handleInputData stdinF nonErrF errF (InputData nameHandling producer) =
                     byteStringFilePath
                     colorNumIfNewFile
                     inputLine
-              sendToStdoutWhenNonNull outByteStrings fileOrigin
+              toStdoutWhenNonNull outByteStrings fileOrigin
       go
 
-sendToStdoutWhenNonNull
+toStdoutWhenNonNull
   :: Monad m
   => [ByteString]
   -> FileOrigin
   -> StateT FileColorState (Proxy x' x () Output m) ()
-sendToStdoutWhenNonNull outByteStrings fileOrigin =
+toStdoutWhenNonNull outByteStrings fileOrigin =
   whenNonNull outByteStrings $ do
-    lift $ sendToStdoutWithNewLine outByteStrings
+    lift $ toStdoutWithNewline outByteStrings
     updateColorNumM fileOrigin
 
-sendToStderrWhenNonNull
+toStderrWhenNonNull
   :: Monad m => [ByteString] -> StateT s (Proxy x' x () Output m) ()
-sendToStderrWhenNonNull outByteStrings =
-  whenNonNull outByteStrings . lift $ sendToStderrWithNewLine outByteStrings
+toStderrWhenNonNull outByteStrings =
+  whenNonNull outByteStrings . lift $ toStderrWithNewline outByteStrings
 
 updateColorNumM
   :: MonadState FileColorState m => FileOrigin -> m ()
@@ -141,22 +141,40 @@ getColorNumIfNewFile newFileOrigin (FileColorState (Just prevFileOrigin) colorNu
   | otherwise = colorNum + 1
 
 
-sendToStdoutWithNewLine :: Monad m => [ByteString] -> Producer' Output m ()
-sendToStdoutWithNewLine = sendWithNewLine OutputStdout
+toStdoutWithNewline :: Monad m => [ByteString] -> Producer' Output m ()
+toStdoutWithNewline = toOutputWithNewline OutputStdout
 
-sendToStderrWithNewLine :: Monad m => [ByteString] -> Producer' Output m ()
-sendToStderrWithNewLine = sendWithNewLine OutputStderr
+toStderrWithNewline :: Monad m => [ByteString] -> Producer' Output m ()
+toStderrWithNewline = toOutputWithNewline OutputStderr
 
-sendWithNewLine
+-- | Convert a list of 'ByteString' to 'Output' with the given function.
+--
+-- Setup for examples:
+--
+-- >>> :set -XOverloadedStrings
+-- >>> import Pipes.Prelude (toListM)
+--
+-- If the list of 'ByteString' is empty, then do nothing.
+--
+-- >>> toListM $ toOutputWithNewline OutputStdout []
+-- []
+--
+-- If the list of 'ByteString' is not empty, then convert to 'Output' and add
+-- an ending newline.
+--
+-- >>> toListM $ toOutputWithNewline OutputStderr ["hello", "bye"]
+-- [OutputStderr "hello",OutputStderr "bye",OutputStderr "\n"]
+toOutputWithNewline
   :: Monad m
-  => (ByteString -> Output) -> [ByteString] -> Producer' Output m ()
-sendWithNewLine byteStringToOutput byteStrings = do
-  let outputs = fmap byteStringToOutput byteStrings
-  case outputs of
-    [] -> return ()
-    (_:_) -> do
-      each outputs
-      yield $ byteStringToOutput "\n"
+  => (ByteString -> Output)
+  -- ^ Function to use to convert the 'ByteString' to 'Output'.
+  -> [ByteString]
+  -- ^ List of 'ByteString's to convert to 'Output'.
+  -> Producer' Output m ()
+toOutputWithNewline _ [] = return ()
+toOutputWithNewline byteStringToOutput byteStrings = do
+  each $ fmap byteStringToOutput byteStrings
+  yield $ byteStringToOutput "\n"
 
 ------------
 -- Output --
