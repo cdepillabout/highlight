@@ -37,6 +37,16 @@ import Highlight.Util
 -- Convert input to Output --
 -----------------------------
 
+type ColorNum = Int
+
+data FileColorState
+  = FileColorState !(Maybe FileOrigin) {-# UNPACK #-} !ColorNum
+  deriving (Eq, Read, Show)
+
+defFileColorState :: FileColorState
+defFileColorState = FileColorState Nothing 0
+
+-- | Convert 'InputData' to 'Output'.
 handleInputData
   :: forall m.
      MonadIO m
@@ -51,13 +61,9 @@ handleInputData
   -> InputData m ()
   -> Producer Output m ()
 handleInputData stdinF nonErrF errF (InputData nameHandling producer) =
-  producer >-> evalStateT go (Nothing, 0)
+  producer >-> evalStateT go defFileColorState
   where
-    go
-      :: StateT
-          (Maybe FileOrigin, ColorNum)
-          (Pipe (FileReader ByteString) Output m)
-          ()
+    go :: StateT FileColorState (Pipe (FileReader ByteString) Output m) ()
     go = do
       fileReader <- lift await
       let maybeFilePath = getFilePathFromFileReader fileReader
@@ -94,7 +100,7 @@ sendToStdoutWhenNonNull
   :: Monad m
   => [ByteString]
   -> FileOrigin
-  -> StateT (Maybe FileOrigin, ColorNum) (Proxy x' x () Output m) ()
+  -> StateT FileColorState (Proxy x' x () Output m) ()
 sendToStdoutWhenNonNull outByteStrings fileOrigin =
   whenNonNull outByteStrings $ do
     lift $ sendToStdoutWithNewLine outByteStrings
@@ -106,38 +112,34 @@ sendToStderrWhenNonNull outByteStrings =
   whenNonNull outByteStrings . lift $ sendToStderrWithNewLine outByteStrings
 
 updateColorNumM
-  :: MonadState (Maybe FileOrigin, ColorNum) m => FileOrigin -> m ()
+  :: MonadState FileColorState m => FileOrigin -> m ()
 updateColorNumM = modify' . updateColorNum
 
 updateColorNum
   :: FileOrigin
-  -> (Maybe FileOrigin, ColorNum)
-  -> (Maybe FileOrigin, ColorNum)
-updateColorNum newFileOrigin (Nothing, colorNum) = (Just newFileOrigin, colorNum)
-updateColorNum newFileOrigin (Just prevFileOrigin, colorNum)
-  | prevFileOrigin == newFileOrigin = (Just newFileOrigin, colorNum)
-  | otherwise = (Just newFileOrigin, colorNum + 1)
+  -> FileColorState
+  -> FileColorState
+updateColorNum newFileOrigin (FileColorState Nothing colorNum) =
+  FileColorState (Just newFileOrigin) colorNum
+updateColorNum newFileOrigin (FileColorState (Just prevFileOrigin) colorNum)
+  | prevFileOrigin == newFileOrigin =
+    FileColorState (Just newFileOrigin) colorNum
+  | otherwise = FileColorState (Just newFileOrigin) (colorNum + 1)
 
 getColorNumIfNewFileM
-  :: MonadState (Maybe FileOrigin, ColorNum) m
+  :: MonadState FileColorState m
   => FileOrigin -> m ColorNum
 getColorNumIfNewFileM newFileOrigin = do
-  (maybePrevFileOrigin, prevColorNum) <- get
-  let newColorNum =
-        getColorNumIfNewFile maybePrevFileOrigin prevColorNum newFileOrigin
+  fileColorState <- get
+  let newColorNum = getColorNumIfNewFile newFileOrigin fileColorState
   return newColorNum
 
-getColorNumIfNewFile
-  :: Maybe FileOrigin
-  -> ColorNum
-  -> FileOrigin
-  -> ColorNum
-getColorNumIfNewFile Nothing colorNum _ = colorNum
-getColorNumIfNewFile (Just prevFileOrigin) colorNum newFileOrigin
+getColorNumIfNewFile :: FileOrigin -> FileColorState -> ColorNum
+getColorNumIfNewFile _ (FileColorState Nothing colorNum) = colorNum
+getColorNumIfNewFile newFileOrigin (FileColorState (Just prevFileOrigin) colorNum)
   | prevFileOrigin == newFileOrigin = colorNum
   | otherwise = colorNum + 1
 
-type ColorNum = Int
 
 sendToStdoutWithNewLine :: Monad m => [ByteString] -> Producer' Output m ()
 sendToStdoutWithNewLine = sendWithNewLine OutputStdout
