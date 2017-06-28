@@ -12,13 +12,14 @@ import Control.Monad.Reader (MonadReader)
 import Control.Monad.State (MonadState)
 import Data.ByteString (ByteString, empty)
 import qualified Data.ByteString.Char8
+import Data.Monoid ((<>))
 import Pipes (Producer, (>->), runEffect)
 import Text.RE.PCRE (RE, (*=~))
 import Text.RE.Replace (replaceAll)
 
 import Highlight.Common.Color
-       (colorForFileNumber, colorReset, colorVividWhiteBold,
-        replaceInRedByteString)
+       (colorForFileNumber, colorReset, colorVividRedBold,
+        colorVividWhiteBold)
 import Highlight.Common.Error (handleErr)
 import Highlight.Highlight.Monad
        (FilenameHandlingFromStdin(..), FilenameHandlingFromFiles(..),
@@ -127,3 +128,6 @@ highlightMatchInRed :: RE -> ByteString -> ByteString
 highlightMatchInRed regex input =
   let matches = input *=~ regex
   in replaceAll replaceInRedByteString matches
+
+replaceInRedByteString :: ByteString
+replaceInRedByteString = colorVividRedBold <> "$0" <> colorReset

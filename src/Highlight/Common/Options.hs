@@ -19,6 +19,8 @@ import Options.Applicative
 -- Ignore case --
 -----------------
 
+-- | Whether or not the case of a regular expression should be ignored.
+-- Similar to @grep@'s @--ignore-case@ option.
 data IgnoreCase = IgnoreCase | DoNotIgnoreCase
   deriving (Eq, Read, Show)
 
@@ -38,6 +40,8 @@ ignoreCaseParser =
 -- Recursive --
 ---------------
 
+-- | Whether or not files should be searched recursively.  Similar to @grep@'s
+-- @--recursive@ option.
 data Recursive = Recursive | NotRecursive
   deriving (Eq, Read, Show)
 
@@ -58,6 +62,8 @@ recursiveParser =
 -- Raw regex --
 ---------------
 
+-- | The raw, pre-compiled regular expression passed in on the command line by
+-- the user.
 newtype RawRegex = RawRegex
   { unRawRegex :: String
   } deriving (Eq, IsString, Read, Show)
@@ -76,6 +82,7 @@ rawRegexParser =
 -- input filename --
 --------------------
 
+-- | An input file passed in on the command line by the user.
 newtype InputFilename = InputFilename
   { unInputFilename :: FilePath
   } deriving (Eq, IsString, Read, Show)
@@ -94,6 +101,8 @@ inputFilenamesParser =
 -- common options --
 --------------------
 
+-- | A set of options that are common to both the @highlight@ and @hrep@
+-- applications.
 data CommonOptions = CommonOptions
   { commonOptionsIgnoreCase :: IgnoreCase
   , commonOptionsRecursive :: Recursive
@@ -144,6 +153,20 @@ commonOptionsParser =
     <*> rawRegexParser
     <*> inputFilenamesParser
 
+-- | A default set of 'CommonOptions'.  Defined as the following:
+--
+-- >>> :{
+-- let opts =
+--       CommonOptions
+--         { commonOptionsIgnoreCase = DoNotIgnoreCase
+--         , commonOptionsRecursive = NotRecursive
+--         , commonOptionsRawRegex = RawRegex { unRawRegex = "" }
+--         , commonOptionsInputFilenames = []
+--         }
+-- :}
+--
+-- >>> opts == defaultCommonOptions
+-- True
 defaultCommonOptions :: CommonOptions
 defaultCommonOptions =
   CommonOptions DoNotIgnoreCase NotRecursive (RawRegex "") []

@@ -38,41 +38,128 @@ import Highlight.Util (combineApplicatives, openFilePathForReading)
 -- Pipes --
 -----------
 
+-- | Place where a file originally came from.
 data FileOrigin
   = FileSpecifiedByUser FilePath
+  -- ^ File was specified on the command line by the user.
   | FileFoundRecursively FilePath
+  -- ^ File was found recursively (not directly specified by the user).
   | Stdin
+  -- ^ Standard input.  It was either specified on the command line as @-@, or
+  -- used as default because the user did not specify any files.
   deriving (Eq, Read, Show)
 
+-- | Get a 'FilePath' from a 'FileOrigin'.
+--
+-- >>> getFilePathFromFileOrigin $ FileSpecifiedByUser "hello.txt"
+-- Just "hello.txt"
+-- >>> getFilePathFromFileOrigin $ FileFoundRecursively "bye.txt"
+-- Just "bye.txt"
+-- >>> getFilePathFromFileOrigin Stdin
+-- Nothing
 getFilePathFromFileOrigin :: FileOrigin -> Maybe FilePath
 getFilePathFromFileOrigin (FileSpecifiedByUser fp) = Just fp
 getFilePathFromFileOrigin (FileFoundRecursively fp) = Just fp
 getFilePathFromFileOrigin Stdin = Nothing
 
+-- | This is used in two different places.
+--
+-- One is in 'fileListProducer', where @a@ becomes 'Handle'.  This represents a
+-- single file that has been opened.  'FileReaderSuccess' contains the
+-- 'FileOrigin' and the 'Handle'.  'FileReaderErr' contains the 'FileOrigin'
+-- and any errors that occurred when trying to open the 'Handle'.
+--
+-- The other is in 'fileReaderHandleToLine' and 'InputData', where @a@ becomes
+-- 'ByteString'.  This represents a single 'ByteString' line from a file, or an
+-- error that occurred when trying to read the file.
+--
+-- 'FileReader' is usually wrapped in a 'Producer'.  This is a stream of either
+-- 'Handle's or 'ByteString' lines (with any errors that have occurred).
 data FileReader a
   = FileReaderSuccess !FileOrigin !a
   | FileReaderErr !FileOrigin !IOException !(Maybe IOException)
   deriving (Eq, Show)
 
+-- | Get a 'FileOrigin' from a 'FileReader'.
+--
+-- >>> let fileOrigin1 = FileSpecifiedByUser "hello.txt"
+-- >>> let fileReader1 = FileReaderSuccess fileOrigin1 "some line"
+-- >>> getFileOriginFromFileReader fileReader1
+-- FileSpecifiedByUser "hello.txt"
+--
+-- >>> let fileOrigin2 = FileFoundRecursively "bye.txt"
+-- >>> let fileReader2 = FileReaderErr fileOrigin2 (userError "err") Nothing
+-- >>> getFileOriginFromFileReader fileReader2
+-- FileFoundRecursively "bye.txt"
 getFileOriginFromFileReader :: FileReader a -> FileOrigin
 getFileOriginFromFileReader (FileReaderSuccess origin _) = origin
 getFileOriginFromFileReader (FileReaderErr origin _ _) = origin
 
+-- | This is just
+-- @'getFilePathFromFileOrigin' '.' 'getFileOriginFromFileReader'@.
+--
+-- >>> let fileOrigin1 = Stdin
+-- >>> let fileReader1 = FileReaderSuccess fileOrigin1 "some line"
+-- >>> getFilePathFromFileReader fileReader1
+-- Nothing
+--
+-- >>> let fileOrigin2 = FileFoundRecursively "bye.txt"
+-- >>> let fileReader2 = FileReaderErr fileOrigin2 (userError "err") Nothing
+-- >>> getFilePathFromFileReader fileReader2
+-- Just "bye.txt"
 getFilePathFromFileReader :: FileReader a -> Maybe FilePath
 getFilePathFromFileReader =
   getFilePathFromFileOrigin . getFileOriginFromFileReader
 
+-- | This wraps up two pieces of information.
+--
+-- One is the value of 'FilenameHandlingFromFiles'.  This signals as to whether
+-- or not we need to print the filename when printing each line of output.
+--
+-- This other is a 'Producer' of 'FileReader' 'ByteString's.  This is a
+-- 'Producer' for each line of each input file.
+--
+-- The main job of this module is to define 'createInputData', which produces
+-- 'InputData'.  'InputData' is what is processed to figure out what to output.
 data InputData m a
   = InputData
       !FilenameHandlingFromFiles
-      !(Producer (FileReader ByteString) m ())
+      !(Producer (FileReader ByteString) m a)
 
+-- | Create 'InputData' based 'InputFilename' list.
+--
+-- Setup for examples:
+--
+-- >>> :set -XOverloadedStrings
+-- >>> import Highlight.Common.Options (InputFilename(InputFilename))
+-- >>> import Highlight.Common.Options (Recursive(NotRecursive))
+--
+-- If the 'InputFilename' list is empty, just create an 'InputData' with
+-- 'NoFilename' and the standard input 'Producer' passed in.
+--
+-- >>> let stdinProd = yield ("hello" :: ByteString)
+-- >>> let create = createInputData NotRecursive [] stdinProd
+-- >>> InputData NoFilename prod <- create
+-- >>> toListM prod
+-- [FileReaderSuccess Stdin "hello"]
+--
+-- If the 'InputFilename' list is not empty, create an 'InputData' with lines
+-- from each file found on the command line.
+--
+-- >>> let inFiles = [InputFilename "test/golden/test-files/file1"]
+-- >>> let create = createInputData NotRecursive inFiles stdinProd
+-- >>> InputData NoFilename prod <- create
+-- >>> Pipes.head prod
+-- Just (FileReaderSuccess (FileSpecifiedByUser "test/golden/test-files/file1") "The...")
 createInputData
   :: forall m.
      MonadIO m
   => Recursive
+  -- ^ Whether or not to recursively read in files.
   -> [InputFilename]
+  -- ^ List of files passed in on the command line.
   -> Producer ByteString m ()
+  -- ^ A producer for standard input
   -> m (InputData m ())
 createInputData recursive inputFilenames stdinProducer = do
   let fileOrigins = FileSpecifiedByUser . unInputFilename <$> inputFilenames

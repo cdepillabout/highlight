@@ -10,13 +10,14 @@ import Prelude.Compat
 import Control.Exception (IOException)
 import Data.ByteString (ByteString)
 import Data.Maybe (maybeToList)
+import Data.Monoid ((<>))
 import Pipes (Producer, (>->), runEffect)
 import Text.RE.PCRE (RE, (*=~), anyMatches)
 import Text.RE.Replace (replaceAll)
 
 import Highlight.Common.Color
-       (colorForFileNumber, colorReset, colorVividWhiteBold,
-        replaceInRedByteString)
+       (colorForFileNumber, colorReset, colorVividRedBold,
+        colorVividWhiteBold)
 import Highlight.Common.Error (handleErr)
 import Highlight.Common.Options (CommonOptions(..))
 import Highlight.Hrep.Monad
@@ -115,3 +116,6 @@ highlightMatchInRed regex input =
   in if didMatch
        then Just $ replaceAll replaceInRedByteString matches
        else Nothing
+
+replaceInRedByteString :: ByteString
+replaceInRedByteString = colorVividRedBold <> "$0" <> colorReset

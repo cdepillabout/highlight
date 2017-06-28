@@ -26,7 +26,11 @@ import Text.RE.PCRE
 
 import Highlight.Common.Error (HighlightErr(..))
 import Highlight.Common.Monad.Input
+       (FilenameHandlingFromFiles(NoFilename, PrintFilename), InputData,
+        createInputData)
 import Highlight.Common.Monad.Output
+       (Output(OutputStderr, OutputStdout), handleInputData,
+        outputConsumer)
 import Highlight.Common.Options
        (HasIgnoreCase(ignoreCaseLens),
         HasInputFilenames(inputFilenamesLens), HasRecursive(recursiveLens),

@@ -5,9 +5,8 @@ module Highlight.Common.Color where
 import Prelude ()
 import Prelude.Compat
 
-import Data.ByteString.Char8 (ByteString, pack)
+import Data.ByteString.Char8 (ByteString, empty, pack)
 import Data.IntMap.Strict (IntMap, (!), fromList)
-import Data.Monoid ((<>))
 import System.Console.ANSI
        (Color(..), ColorIntensity(..), ConsoleIntensity(..),
         ConsoleLayer(..), SGR(..), setSGRCode)
@@ -16,15 +15,27 @@ import System.Console.ANSI
 -- Application Colors --
 ------------------------
 
+-- | Find the corresponding color for the number in 'allColorsList', taking the
+-- mod of the 'Int'.
+--
+-- >>> colorForFileNumber 0
+-- "\ESC[1m\ESC[94m"
+-- >>> colorForFileNumber 1
+-- "\ESC[1m\ESC[92m"
+-- >>> colorForFileNumber 4
+-- "\ESC[1m\ESC[94m"
 colorForFileNumber :: Int -> ByteString
 colorForFileNumber num = allColorsMap ! (num `mod` allColorsLength)
 
+-- | 'allColorsList' turned into an 'IntMap' for faster lookup.
 allColorsMap :: IntMap ByteString
 allColorsMap = fromList $ zip [0..] allColorsList
 
+-- | 'length' of 'allColorsList'.
 allColorsLength :: Int
 allColorsLength = length allColorsList
 
+-- | List of all the colors that are used for highlighting filenames.
 allColorsList :: [ByteString]
 allColorsList =
   [ colorVividBlueBold
@@ -32,9 +43,6 @@ allColorsList =
   , colorVividCyanBold
   , colorVividMagentaBold
   ]
-
-replaceInRedByteString :: ByteString
-replaceInRedByteString = colorVividRedBold <> "$0" <> colorReset
 
 -----------------------
 -- Vivid Bold Colors --
@@ -162,7 +170,7 @@ colorReset = setSGRCodeBuilder [Reset]
 
 -- | Empty string.
 colorNull :: ByteString
-colorNull = ""
+colorNull = empty
 
 -------------
 -- Helpers --
