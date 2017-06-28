@@ -307,11 +307,72 @@ fileListProducer recursive = go
 -- Filename Handling --
 -----------------------
 
+-- | This data type specifies how printing filenames will be handled, along
+-- with the 'computeFilenameHandlingFromFiles' function.
 data FilenameHandlingFromFiles
-  = NoFilename
-  | PrintFilename
+  = NoFilename -- ^ Do not print the filename on stdout.
+  | PrintFilename -- ^ Print the filename on stdout.
   deriving (Eq, Read, Show)
 
+-- | Given a 'Producer' of 'FileReader's, figure out whether or not we should
+-- print the filename of the file to stdout.
+--
+-- The following examples walk through possible command lines using @highlight@, and the corresponding return values of this function.
+--
+-- @
+--   $ highlight expression
+-- @
+--
+-- We want to read from stdin.  There should be no 'FileReaders' in the
+-- 'Producer'. Do not print the filename.
+--
+-- >>> let producerStdin = each []
+-- >>> (fhStdin, _) <- computeFilenameHandlingFromFiles producerStdin
+-- >>> fhStdin
+-- NoFilename
+--
+-- @
+--   $ highlight expression file1
+-- @
+--
+-- We want to highlight a single file.  There should only be a single
+-- 'FileReader' in the 'Producer', and it should be 'FileSpecifiedByUser'.  Do
+-- not print the filename.
+--
+-- >>> let fileOriginSingleFile = FileSpecifiedByUser "file1"
+-- >>> let fileReaderSingleFile = FileReaderSuccess fileOriginSingleFile "hello"
+-- >>> let producerSingleFile = each [fileReaderSingleFile]
+-- >>> (fhSingleFile, _) <- computeFilenameHandlingFromFiles producerSingleFile
+-- >>> fhSingleFile
+-- NoFilename
+--
+-- @
+--   $ highlight expression file1 file2
+-- @
+--
+-- We want to highlight two files.  Print the filename.
+--
+-- >>> let fileOriginMulti1 = FileSpecifiedByUser "file1"
+-- >>> let fileReaderMulti1 = FileReaderSuccess fileOriginMulti1 "hello"
+-- >>> let fileOriginMulti2 = FileSpecifiedByUser "file2"
+-- >>> let fileReaderMulti2 = FileReaderSuccess fileOriginMulti2 "bye"
+-- >>> let producerMultiFile = each [fileReaderMulti1, fileReaderMulti2]
+-- >>> (fhMultiFile, _) <- computeFilenameHandlingFromFiles producerMultiFile
+-- >>> fhMultiFile
+-- PrintFilename
+--
+-- @
+--   $ highlight -r expression dir1
+-- @
+--
+-- We want to highlight all files found in @dir1\/@.  Print filenames.
+--
+-- >>> let fileOriginRec = FileFoundRecursively "dir1/file1"
+-- >>> let fileReaderRec = FileReaderSuccess fileOriginRec "cat"
+-- >>> let producerRec = each [fileReaderRec]
+-- >>> (fhRec, _) <- computeFilenameHandlingFromFiles producerRec
+-- >>> fhRec
+-- PrintFilename
 computeFilenameHandlingFromFiles
   :: forall a m r.
      Monad m
