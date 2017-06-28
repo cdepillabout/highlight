@@ -140,12 +140,13 @@ getColorNumIfNewFile newFileOrigin (FileColorState (Just prevFileOrigin) colorNu
   | prevFileOrigin == newFileOrigin = colorNum
   | otherwise = colorNum + 1
 
-
-toStdoutWithNewline :: Monad m => [ByteString] -> Producer' Output m ()
-toStdoutWithNewline = toOutputWithNewline OutputStdout
-
+-- | This is just 'toOutputWithNewLine' 'OutputStderr'.
 toStderrWithNewline :: Monad m => [ByteString] -> Producer' Output m ()
 toStderrWithNewline = toOutputWithNewline OutputStderr
+
+-- | This is just 'toOutputWithNewLine' 'OutputStdout'.
+toStdoutWithNewline :: Monad m => [ByteString] -> Producer' Output m ()
+toStdoutWithNewline = toOutputWithNewline OutputStdout
 
 -- | Convert a list of 'ByteString' to 'Output' with the given function.
 --
