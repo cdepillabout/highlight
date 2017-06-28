@@ -175,6 +175,20 @@ createInputData recursive inputFilenames stdinProducer = do
       let fileLineProducer = fileReaderHandleToLine newFileProducer
       return $ InputData filenameHandling fileLineProducer
 
+-- | Change a given 'Producer' into a 'FileReader' 'Producer' with the
+-- 'FileOrigin' set to 'Stdin'.
+--
+-- You can think of this function as having the following type:
+--
+-- @
+--   'stdinProducerToFileReader'
+--     :: 'Monad' m
+--     => 'Producer' a m r
+--     -> 'Producer' ('FileReader' a) m r
+-- @
+--
+-- >>> Pipes.head . stdinProducerToFileReader $ yield "hello"
+-- Just (FileReaderSuccess Stdin "hello")
 stdinProducerToFileReader
   :: forall x' x a m r.
      Monad m
@@ -186,14 +200,30 @@ stdinProducerToFileReader producer = producer >-> Pipes.map go
     go = FileReaderSuccess Stdin
 {-# INLINABLE stdinProducerToFileReader #-}
 
+-- | Convert a 'Producer' of 'FileReader' 'Handle' into a 'Producer' of
+-- 'FileReader' 'ByteString', where each line from the 'Handle' is 'yield'ed.
+--
+-- You can think of this function as having the following type:
+--
+-- @
+--   'fileReaderHandleToLine'
+--     :: 'MonadIO' m
+--     => 'Producer' ('FileReader' 'Handle') m r
+--     -> 'Producer' ('FileReader' 'ByteString') m r
+-- @
+--
+-- >>> let fileOrigin = FileSpecifiedByUser "test/golden/test-files/file2"
+-- >>> let producer = fileListProducer Recursive fileOrigin
+-- >>> Pipes.head $ fileReaderHandleToLine producer
+-- Just (FileReaderSuccess (FileSpecifiedByUser "test/golden/test-files/file2") "Pr...
 fileReaderHandleToLine
-  :: forall m x' x.
+  :: forall m x' x r.
      MonadIO m
-  => Proxy x' x () (FileReader Handle) m ()
-  -> Proxy x' x () (FileReader ByteString) m ()
+  => Proxy x' x () (FileReader Handle) m r
+  -> Proxy x' x () (FileReader ByteString) m r
 fileReaderHandleToLine producer = producer >-> pipe
   where
-    pipe :: Pipe (FileReader Handle) (FileReader ByteString) m ()
+    pipe :: Pipe (FileReader Handle) (FileReader ByteString) m r
     pipe = do
       fileReaderHandle <- await
       case fileReaderHandle of
