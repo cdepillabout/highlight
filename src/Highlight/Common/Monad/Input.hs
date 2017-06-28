@@ -234,6 +234,35 @@ fileReaderHandleToLine producer = producer >-> pipe
           linesProducer >-> Pipes.map (FileReaderSuccess fileOrigin)
       pipe
 
+-- | Create a 'Producer' of 'FileReader' 'Handle' for a given 'FileOrigin'.
+--
+-- Setup for examples:
+--
+-- >>> import Highlight.Common.Options (Recursive(NotRecursive, Recursive))
+--
+-- If 'NoRecursive' is specified, just try to read 'FileOrigin' as a file.
+--
+-- >>> let fileOrigin1 = FileSpecifiedByUser "test/golden/test-files/file2"
+-- >>> toListM $ fileListProducer NotRecursive fileOrigin1
+-- [FileReaderSuccess (FileSpecifiedByUser "test/.../file2") {handle: test/.../file2}]
+--
+-- If the file cannot be read, return an error.
+--
+-- >>> let fileOrigin2 = FileSpecifiedByUser "thisfiledoesnotexist"
+-- >>> toListM $ fileListProducer NotRecursive fileOrigin2
+-- [FileReaderErr (FileSpecifiedByUser "thisfiledoesnotexist") thisfiledoesnotexist: openBinaryFile: does not exist (No such file or directory) Nothing]
+--
+-- If 'Recursive' is specified, then try to read 'FileOrigin' as a directory'.
+--
+-- >>> let fileOrigin3 = FileSpecifiedByUser "test/golden/test-files/dir2"
+-- >>> toListM $ fileListProducer Recursive fileOrigin3
+-- [FileReaderSuccess (FileFoundRecursively "test/.../dir2/file6") {handle: test/.../dir2/file6}]
+--
+-- If the directory cannot be read, return an error.
+--
+-- >>> let fileOrigin4 = FileSpecifiedByUser "thisdirdoesnotexist"
+-- >>> toListM $ fileListProducer Recursive fileOrigin4
+-- [FileReaderErr (FileSpecifiedByUser "thisdirdoesnotexist") thisdirdoesnotexist: openBinaryFile: does not exist (No such file or directory) (Just thisdirdoesnotexist: getDirectoryContents:openDirStream: does not exist (No such file or directory))]
 fileListProducer
   :: forall m.
      MonadIO m
