@@ -98,6 +98,8 @@ throwRegexCompileErr = throwHighlightErr . HighlightRegexCompileErr
 -- Regex --
 -----------
 
+-- | Call 'compileHighlightRegex'.  Throw a 'HighlightErr' if the regex cannot
+-- be compiled.
 compileHighlightRegexWithErr
   :: (HasIgnoreCase r, HasRawRegex r)
   => CommonHighlightM r s HighlightErr RE
