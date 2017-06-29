@@ -96,8 +96,12 @@ handleInputData stdinF nonErrF errF (InputData nameHandling producer) =
               toStdoutWhenNonNull outByteStrings fileOrigin
       go
 
+-- | When the list of 'ByteString' is not @[]@, convert them to 'OutputStdout'
+-- and return them in a 'Producer'.  Call 'updateColorNum' with the passed-in
+-- 'FileOrigin'.
 toStdoutWhenNonNull
-  :: Monad m
+  :: forall m x' x.
+     Monad m
   => [ByteString]
   -> FileOrigin
   -> StateT FileColorState (Proxy x' x () Output m) ()
@@ -106,15 +110,50 @@ toStdoutWhenNonNull outByteStrings fileOrigin =
     lift $ toStdoutWithNewline outByteStrings
     updateColorNumM fileOrigin
 
+-- | When the list of 'ByteString' is not @[]@, convert them to 'OutputStderr'
+-- and return them in a 'Producer'.  Do not call 'updateColorNum'.
 toStderrWhenNonNull
-  :: Monad m => [ByteString] -> StateT s (Proxy x' x () Output m) ()
+  :: forall m s x' x.
+     Monad m
+  => [ByteString] -> StateT s (Proxy x' x () Output m) ()
 toStderrWhenNonNull outByteStrings =
   whenNonNull outByteStrings . lift $ toStderrWithNewline outByteStrings
 
+-- | Call 'updateColorNum' with the current value of 'FileColorState'.
 updateColorNumM
   :: MonadState FileColorState m => FileOrigin -> m ()
 updateColorNumM = modify' . updateColorNum
 
+-- | Based on the value of the passed in 'FileOrigin' and the 'FileOrigin' in
+-- 'FileColorState', update the 'ColorNum' in 'FileColorState'.
+--
+-- Setup for examples:
+--
+-- >>> import Highlight.Common.Monad.Input (FileOrigin(FileSpecifiedByUser))
+--
+-- If 'defFileColorState' is passed in, then update the 'FileOrigin'.
+--
+-- >>> let fileOrigin = FileSpecifiedByUser "hello.txt"
+-- >>> updateColorNum fileOrigin defFileColorState
+-- FileColorState (Just (FileSpecifiedByUser "hello.txt")) 0
+--
+-- If the 'FileOrigin' is different from the one in 'FileColorState', then
+-- increment the 'ColorNum'.
+--
+-- >>> let oldFileOrigin = FileSpecifiedByUser "hello.txt"
+-- >>> let newFileOrigin = FileSpecifiedByUser "bye.txt"
+-- >>> let fileColorStateDiff = FileColorState (Just oldFileOrigin) 5
+-- >>> updateColorNum newFileOrigin fileColorStateDiff
+-- FileColorState (Just (FileSpecifiedByUser "bye.txt")) 6
+--
+-- If the 'FileOrigin' is the same as the one in 'FileColorState', then do not
+-- increment the 'ColorNum'.
+--
+-- >>> let sameFileOrigin = FileSpecifiedByUser "hello.txt"
+-- >>> let fileColorStateDiff = FileColorState (Just sameFileOrigin) 5
+-- >>> updateColorNum sameFileOrigin fileColorStateDiff
+-- FileColorState (Just (FileSpecifiedByUser "hello.txt")) 5
+--
 updateColorNum
   :: FileOrigin
   -> FileColorState
@@ -126,19 +165,15 @@ updateColorNum newFileOrigin (FileColorState (Just prevFileOrigin) colorNum)
     FileColorState (Just newFileOrigin) colorNum
   | otherwise = FileColorState (Just newFileOrigin) (colorNum + 1)
 
+-- | This called 'updateColorNum' and returns the new value of 'ColorNum', but
+-- it doesn't update the 'FileColorNum' in 'MonadState'.
 getColorNumIfNewFileM
   :: MonadState FileColorState m
   => FileOrigin -> m ColorNum
 getColorNumIfNewFileM newFileOrigin = do
   fileColorState <- get
-  let newColorNum = getColorNumIfNewFile newFileOrigin fileColorState
-  return newColorNum
-
-getColorNumIfNewFile :: FileOrigin -> FileColorState -> ColorNum
-getColorNumIfNewFile _ (FileColorState Nothing colorNum) = colorNum
-getColorNumIfNewFile newFileOrigin (FileColorState (Just prevFileOrigin) colorNum)
-  | prevFileOrigin == newFileOrigin = colorNum
-  | otherwise = colorNum + 1
+  let (FileColorState _ colorNum) = updateColorNum newFileOrigin fileColorState
+  return colorNum
 
 -- | This is just 'toOutputWithNewLine' 'OutputStderr'.
 toStderrWithNewline :: Monad m => [ByteString] -> Producer' Output m ()
