@@ -18,7 +18,7 @@ import Highlight.Common.Monad
         FilenameHandlingFromFiles(NoFilename, PrintFilename), InputData,
         Output, compileHighlightRegexWithErr, createInputData,
         getInputFilenamesM, getRecursiveM, handleInputData,
-        outputConsumer, runCommonHighlightM)
+        runCommonHighlightM, runOutputProducer)
 import Highlight.Common.Options (CommonOptions)
 
 --------------------

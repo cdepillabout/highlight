@@ -25,7 +25,7 @@ import Highlight.Highlight.Monad
        (FilenameHandlingFromFiles(..), FromGrepFilenameState, HighlightM,
         Output, compileHighlightRegexWithErr, createInputData,
         getColorGrepFilenamesM, getInputFilenamesM, getRecursiveM,
-        handleInputData, outputConsumer, runHighlightM, updateFilenameM)
+        handleInputData, runHighlightM, runOutputProducer, updateFilenameM)
 import Highlight.Highlight.Options
        (HasColorGrepFilenames,
         ColorGrepFilenames(ColorGrepFilenames, DoNotColorGrepFileNames),
@@ -57,10 +57,6 @@ highlightOutputProducer stdinProducer = do
           handleError
           inputData
   return outputProducer
-
-runOutputProducer :: Producer Output HighlightM () -> HighlightM ()
-runOutputProducer producer =
-  runEffect $ producer >-> outputConsumer
 
 handleStdinInput
   :: ( HasColorGrepFilenames r

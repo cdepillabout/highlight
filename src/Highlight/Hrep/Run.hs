@@ -11,7 +11,7 @@ import Control.Exception (IOException)
 import Data.ByteString (ByteString)
 import Data.Maybe (maybeToList)
 import Data.Monoid ((<>))
-import Pipes (Producer, (>->), runEffect)
+import Pipes (Producer)
 import Text.RE.PCRE (RE, (*=~), anyMatches)
 import Text.RE.Replace (replaceAll)
 
@@ -23,7 +23,7 @@ import Highlight.Common.Options (CommonOptions(..))
 import Highlight.Hrep.Monad
        (FilenameHandlingFromFiles(..), HrepM, Output,
         compileHighlightRegexWithErr, createInputData, getInputFilenamesM,
-        getRecursiveM, handleInputData, outputConsumer, runHrepM)
+        getRecursiveM, handleInputData, runHrepM, runOutputProducer)
 import Highlight.Pipes (stdinLines)
 
 run :: CommonOptions -> IO ()
@@ -51,10 +51,6 @@ hrepOutputProducer stdinProducer = do
           handleError
           inputData
   return outputProducer
-
-runOutputProducer :: Producer Output HrepM () -> HrepM ()
-runOutputProducer producer =
-  runEffect $ producer >-> outputConsumer
 
 handleStdinInput
   :: Monad m

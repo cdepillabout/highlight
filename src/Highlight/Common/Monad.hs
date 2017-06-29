@@ -30,7 +30,7 @@ import Highlight.Common.Monad.Input
         createInputData)
 import Highlight.Common.Monad.Output
        (Output(OutputStderr, OutputStdout), handleInputData,
-        outputConsumer)
+        runOutputProducer)
 import Highlight.Common.Options
        (HasIgnoreCase(ignoreCaseLens),
         HasInputFilenames(inputFilenamesLens), HasRecursive(recursiveLens),

@@ -8,7 +8,7 @@
 module Highlight.Common.Monad.Output
   ( Output(..)
   , handleInputData
-  , outputConsumer
+  , runOutputProducer
   ) where
 
 import Prelude ()
@@ -21,7 +21,7 @@ import Control.Monad.Trans.Class (lift)
 import Data.ByteString (ByteString)
 import Pipes
        (Consumer, Pipe, Producer, Producer', Proxy, (>->), await, each,
-        yield)
+        runEffect, yield)
 import Pipes.ByteString (stdout)
 
 import Highlight.Common.Monad.Input
@@ -257,3 +257,8 @@ outputConsumer = do
     OutputStderr byteString ->
       yield byteString >-> stderrConsumer
   outputConsumer
+
+-- | Run a 'Producer' 'Output' by connecting it to 'outputConsumer'.
+runOutputProducer :: MonadIO m => Producer Output m () -> m ()
+runOutputProducer producer =
+  runEffect $ producer >-> outputConsumer
