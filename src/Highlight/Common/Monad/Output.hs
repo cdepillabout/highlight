@@ -259,6 +259,5 @@ outputConsumer = do
   outputConsumer
 
 -- | Run a 'Producer' 'Output' by connecting it to 'outputConsumer'.
-runOutputProducer :: MonadIO m => Producer Output m () -> m ()
-runOutputProducer producer =
-  runEffect $ producer >-> outputConsumer
+runOutputProducer :: forall m. MonadIO m => Producer Output m () -> m ()
+runOutputProducer producer = runEffect $ producer >-> outputConsumer
