@@ -25,6 +25,7 @@ import Highlight.Common.Options (CommonOptions)
 -- The Hrep Monad --
 --------------------
 
+-- | 'HrepM' is just 'CommonHighlightM' specialized for @hrep@.
 type HrepM = CommonHighlightM CommonOptions () HighlightErr
 
 runHrepM :: CommonOptions -> HrepM a -> IO (Either HighlightErr a)

@@ -23,7 +23,7 @@ import Highlight.Common.Color
 import Highlight.Common.Error (handleErr)
 import Highlight.Highlight.Monad
        (FilenameHandlingFromFiles(..), FromGrepFilenameState, HighlightM,
-        InputData, Output, compileHighlightRegexWithErr, createInputData,
+        Output, compileHighlightRegexWithErr, createInputData,
         getColorGrepFilenamesM, getInputFilenamesM, getRecursiveM,
         handleInputData, outputConsumer, runHighlightM, updateFilenameM)
 import Highlight.Highlight.Options
@@ -50,18 +50,13 @@ highlightOutputProducer stdinProducer = do
   inputFilenames <- getInputFilenamesM
   recursive <- getRecursiveM
   inputData <- createInputData recursive inputFilenames stdinProducer
-  let outputProducer = getOutputProducer regex inputData
+  let outputProducer =
+        handleInputData
+          (handleStdinInput regex)
+          (handleFileInput regex)
+          handleError
+          inputData
   return outputProducer
-
-getOutputProducer
-  :: RE
-  -> InputData HighlightM ()
-  -> Producer Output HighlightM ()
-getOutputProducer regex =
-  handleInputData
-    (handleStdinInput regex)
-    (handleFileInput regex)
-    handleError
 
 runOutputProducer :: Producer Output HighlightM () -> HighlightM ()
 runOutputProducer producer =
