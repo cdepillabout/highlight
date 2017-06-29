@@ -37,12 +37,16 @@ import Highlight.Util
 -- Convert input to Output --
 -----------------------------
 
+-- | The current number of the file we are outputting.  This is increased by
+-- one for each file.
 type ColorNum = Int
 
+-- | The state for which number file we are outputting with its 'FileOrigin'.
 data FileColorState
   = FileColorState !(Maybe FileOrigin) {-# UNPACK #-} !ColorNum
   deriving (Eq, Read, Show)
 
+-- | This is just @'FileColorState' 'Nothing' 0@.
 defFileColorState :: FileColorState
 defFileColorState = FileColorState Nothing 0
 
@@ -51,14 +55,18 @@ handleInputData
   :: forall m.
      MonadIO m
   => (ByteString -> m [ByteString])
+  -- ^ Function to use for conversion for a line from stdin.
   -> (FilenameHandlingFromFiles
         -> ByteString
         -> Int
         -> ByteString
         -> m [ByteString]
      )
+  -- ^ Function to use for conversion for a line from a normal file.
   -> (ByteString -> IOException -> Maybe IOException -> m [ByteString])
+  -- ^ Function to use for conversion for an io error.
   -> InputData m ()
+  -- ^ All of the input lines.
   -> Producer Output m ()
 handleInputData stdinF nonErrF errF (InputData nameHandling producer) =
   producer >-> evalStateT go defFileColorState
@@ -153,7 +161,6 @@ updateColorNumM = modify' . updateColorNum
 -- >>> let fileColorStateDiff = FileColorState (Just sameFileOrigin) 5
 -- >>> updateColorNum sameFileOrigin fileColorStateDiff
 -- FileColorState (Just (FileSpecifiedByUser "hello.txt")) 5
---
 updateColorNum
   :: FileOrigin
   -> FileColorState
