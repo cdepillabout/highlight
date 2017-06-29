@@ -31,6 +31,8 @@ import Highlight.Common.Options
 -- Color grep filenames --
 --------------------------
 
+-- | Whether or not to color filenames output by @grep@ when reading in from
+-- stdin.
 data ColorGrepFilenames = ColorGrepFilenames | DoNotColorGrepFileNames
   deriving (Eq, Read, Show)
 

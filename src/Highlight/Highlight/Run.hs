@@ -22,13 +22,14 @@ import Highlight.Common.Color
         colorVividWhiteBold)
 import Highlight.Common.Error (handleErr)
 import Highlight.Highlight.Monad
-       (FilenameHandlingFromStdin(..), FilenameHandlingFromFiles(..),
-        FromGrepFilenameState, HighlightM, InputData, Output,
-        compileHighlightRegexWithErr, createInputData,
-        filenameHandlingFromStdinM, getInputFilenamesM, getRecursiveM,
-        handleInputData, outputConsumer, runHighlightM,
-        updateFilename)
-import Highlight.Highlight.Options (HasColorGrepFilenames, Options(..))
+       (FilenameHandlingFromFiles(..), FromGrepFilenameState, HighlightM,
+        InputData, Output, compileHighlightRegexWithErr, createInputData,
+        getColorGrepFilenamesM, getInputFilenamesM, getRecursiveM,
+        handleInputData, outputConsumer, runHighlightM, updateFilenameM)
+import Highlight.Highlight.Options
+       (HasColorGrepFilenames,
+        ColorGrepFilenames(ColorGrepFilenames, DoNotColorGrepFileNames),
+        Options(..))
 import Highlight.Pipes (stdinLines)
 
 run :: Options -> IO ()
@@ -73,10 +74,10 @@ handleStdinInput
      )
   => RE -> ByteString -> m [ByteString]
 handleStdinInput regex input = do
-  stdinHandling <- filenameHandlingFromStdinM
-  case stdinHandling of
-    FromStdinNoFilename -> return $ formatNormalLine regex input
-    FromStdinParseFilenameFromGrep -> do
+  colorGrepFilenames <- getColorGrepFilenamesM
+  case colorGrepFilenames of
+    DoNotColorGrepFileNames -> return $ formatNormalLine regex input
+    ColorGrepFilenames -> do
       let (beforeColon, colonAndAfter) =
             Data.ByteString.Char8.break (== ':') input
       if colonAndAfter == empty
@@ -84,7 +85,7 @@ handleStdinInput regex input = do
         else do
           let filePath = beforeColon
               lineWithoutColon = Data.ByteString.Char8.drop 1 colonAndAfter
-          fileNumber <- updateFilename filePath
+          fileNumber <- updateFilenameM filePath
           return $
             formatLineWithFilename regex fileNumber filePath lineWithoutColon
 
