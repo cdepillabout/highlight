@@ -26,8 +26,8 @@ import Highlight.Common.Monad
         getInputFilenamesM, getRecursiveM, handleInputData,
         runCommonHighlightM, runOutputProducer)
 import Highlight.Highlight.Options
-       (ColorGrepFilenames(ColorGrepFilenames, DoNotColorGrepFileNames),
-        HasColorGrepFilenames(colorGrepFilenamesLens), Options(..))
+       (ColorGrepFilenames, HasColorGrepFilenames(colorGrepFilenamesLens),
+        Options(..))
 import Highlight.Util (modify')
 
 -- | The internal state that is used to figure out how to color filenames from
