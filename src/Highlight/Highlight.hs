@@ -1,3 +1,15 @@
+{- |
+Module      :  Highlight.Highlight
+
+Copyright   :  Dennis Gosnell 2017
+License     :  BSD3
+
+Maintainer  :  Dennis Gosnell (cdep.illabout@gmail.com)
+Stability   :  experimental
+Portability :  unknown
+
+This module contains the 'defaultMain' function for the @highlight@ program.
+-}
 
 module Highlight.Highlight where
 
