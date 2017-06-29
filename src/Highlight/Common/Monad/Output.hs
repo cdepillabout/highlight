@@ -46,7 +46,10 @@ data FileColorState
   = FileColorState !(Maybe FileOrigin) {-# UNPACK #-} !ColorNum
   deriving (Eq, Read, Show)
 
--- | This is just @'FileColorState' 'Nothing' 0@.
+-- | Initial value for 'FileColorState'. Defined as the following:
+--
+-- >>> defFileColorState
+-- FileColorState Nothing 0
 defFileColorState :: FileColorState
 defFileColorState = FileColorState Nothing 0
 
@@ -223,11 +226,28 @@ toOutputWithNewline byteStringToOutput byteStrings = do
 -- Output --
 ------------
 
+-- | Sum-type to represent where a given 'ByteString' should be output, whether
+-- it is stdout or stderr.
 data Output
   = OutputStdout !ByteString
   | OutputStderr !ByteString
   deriving (Eq, Read, Show)
 
+-- | Write each 'Output' to either 'stdout' or 'stderrConsumer'.
+--
+-- Setup for tests:
+--
+-- >>> import Pipes (runEffect)
+--
+-- Send 'OutputStdout' to 'stdout'.
+--
+-- >>> runEffect $ yield (OutputStdout "this goes to stdout") >-> outputConsumer
+-- this goes to stdout
+--
+-- Send 'OutputStderr' to 'stderrConsumer'.
+--
+-- >>> runEffect $ yield (OutputStderr "this goes to stderr") >-> outputConsumer
+-- this goes to stderr
 outputConsumer :: MonadIO m => Consumer Output m ()
 outputConsumer = do
   output <- await
