@@ -8,7 +8,22 @@ Highlight
 [![Stackage Nightly](http://stackage.org/package/highlight/badge/nightly)](http://stackage.org/nightly/package/highlight)
 ![BSD3 license](https://img.shields.io/badge/license-BSD3-blue.svg)
 
-`highlight` is a 
+`highlight` is a command line program for highlighting parts of a file matching
+a regex.
+
+For example, take a look at the following file:
+
+![non-highlighted file](/img/non-highlighted-file.png?raw=true "non-highlighted file")
+
+`highlight` can be used to highlight the regex `cat`:
+
+![simple highlighted file](/img/highlight-simple-example.png?raw=true "simple highlighted file")
+
+## Uses
+
+This package installs two binaries, `highlight` and `hrep`.  The following
+section explains the main uses of `highlight` and `hrep`.
+
 
 For example, imagine the following Haskell data types and values:
 
