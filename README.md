@@ -27,18 +27,18 @@ section explains the main uses of `highlight` and `hrep`.
 ### `highlight`
 
 `highlight` is used to highlight a given regex in a file, while printing out
-all lines of a file.
+all lines of the file.
 
-The short example above show how to use `highlight` to `highlight` a regex in a
+The short example above show how to use `highlight` to highlight a regex in a
 single file.  It is also possible to use `highlight` on multiple files at once:
 
 ![multiple highlighted files](/img/highlight-multi-file-example.png?raw=true "multiple highlighted files")
 
 `highlight` will color and stripe the filenames to make it easier to see which
 line came from which file.  This also shows an example of the `--ignore-case`
-options, which is similar to `grep`'s `--ignore-case` option.
+option, which is similar to `grep`'s `--ignore-case` option.
 
-### `highlight` output from `grep`
+### highlight output from `grep`
 
 `highlight` has a special option for highlighting output from `grep`:
 
@@ -60,38 +60,34 @@ but it will color and stripe filenames:
 
 ## Installation
 
+`highlight` and `hrep` can be installed with
+[`stack`](https://docs.haskellstack.org/en/stable/README/):
 
-For example, imagine the following Haskell data types and values:
-
-```haskell
-data Foo = Foo { foo1 :: Integer , foo2 :: [String] } deriving Show
-
-foo :: Foo
-foo = Foo 3 ["hello", "goodbye"]
-
-data Bar = Bar { bar1 :: Double , bar2 :: [Foo] } deriving Show
-
-bar :: Bar
-bar = Bar 10.55 [foo, foo]
+```sh
+$ stack install highlight
 ```
 
-If you run this in `ghci` and type `print bar`, you'll get output like this:
+It should also be possible to use `cabal` to install this package.
 
-```haskell
-> print bar
-Bar {bar1 = 10.55, bar2 = [Foo {foo1 = 3, foo2 = ["hello","goodbye"]},Foo {foo1 = 3, foo2 = ["hello","goodbye"]}]}
-```
+## Other ways to highlight parts of files
 
-This is pretty hard to read.  Imagine if there were more fields or it were even
-more deeply nested.  It would be even more difficult to read.
+It is possible to highlight lines matching a given regex with `grep` two
+different ways.
 
-`pretty-simple` can be used to print `bar` in an easy-to-read format:
+1.  Use a special regex that will match any line, but only highlight the part
+    desired.  It would look like this:
 
-![example screenshot](/img/pretty-simple-example-screenshot.png?raw=true "example screenshot")
+    ```sh
+    $ grep 'about|$' file-cats file-dogs file-goats
+    ```
 
-## Features
+2.  Give a large `--context` flag:
 
-## Why not `(some other package)`?
+    ```sh
+    $ grep --context 9999 'about' file-cats file-dogs file-goats
+    ```
+
+However, neither of these will color and stripe filenames.
 
 ## Contributions
 
@@ -99,3 +95,14 @@ Feel free to open an
 [issue](https://github.com/cdepillabout/pretty-simple/issues) or
 [PR](https://github.com/cdepillabout/pretty-simple/pulls) for any
 bugs/problems/suggestions/improvements.
+
+### Additional flags
+
+`highlight` and `hrep` do not currently support all flags and options that
+`grep` does.  Ideally, `highlight` and `hrep` would be drop-in replacements for
+`grep`, supporting all the same flags and options as `grep`.
+
+If there is a flag or option you frequently use and want supported with
+`highlight` or `hrep`, please feel free to open an issue or PR.  Some
+flags/options will be relatively easy to support, while some may require quite
+a large amount of additional code.
