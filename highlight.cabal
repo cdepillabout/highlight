@@ -1,5 +1,5 @@
 name:                highlight
-version:             1.0.0.0
+version:             1.0.0.1
 synopsis:            Command line tool for highlighting parts of files matching a regex.
 description:         Please see <https://github.com/cdepillabout/highlight#readme README.md>.
 homepage:            https://github.com/cdepillabout/highlight
