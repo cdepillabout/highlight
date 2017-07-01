@@ -67,6 +67,8 @@ but it will color and stripe filenames:
 $ stack install highlight
 ```
 
+By default, `stack` will install binaries into `~/.local/bin/`.
+
 It should also be possible to use `cabal` to install this package.
 
 ## Other ways to highlight parts of files
@@ -106,3 +108,22 @@ If there is a flag or option you frequently use and want supported with
 `highlight` or `hrep`, please feel free to open an issue or PR.  Some
 flags/options will be relatively easy to support, while some may require quite
 a large amount of additional code.
+
+## Development
+
+### Build
+
+`highlight` and `hrep` can be built will the following command.  See the
+Installation section above for information about `stack`.
+
+```sh
+$ stack build
+```
+
+### Test
+
+The tests can be run with the following command:
+
+```sh
+$ stack test
+```
