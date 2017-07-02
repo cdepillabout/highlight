@@ -114,7 +114,7 @@ a large amount of additional code.
 ### Build
 
 `highlight` and `hrep` can be built will the following command.  See the
-Installation section above for information about `stack`.
+[Installation](#installation) section above for information about `stack`.
 
 ```sh
 $ stack build
