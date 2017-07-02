@@ -64,7 +64,7 @@ but it will color and stripe filenames:
 [`stack`](https://docs.haskellstack.org/en/stable/README/):
 
 ```sh
-$ stack install highlight
+$ stack --resolver nightly-2017-07-03 install highlight
 ```
 
 By default, `stack` will install binaries into `~/.local/bin/`.
