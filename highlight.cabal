@@ -1,5 +1,5 @@
 name:                highlight
-version:             1.0.0.1
+version:             1.0.0.2
 synopsis:            Command line tool for highlighting parts of files matching a regex.
 description:         Please see <https://github.com/cdepillabout/highlight#readme README.md>.
 homepage:            https://github.com/cdepillabout/highlight
@@ -7,7 +7,7 @@ license:             BSD3
 license-file:        LICENSE
 author:              Dennis Gosnell
 maintainer:          cdep.illabout@gmail.com
-copyright:           2017 Dennis Gosnell
+copyright:           2017-2022 Dennis Gosnell
 category:            Text
 build-type:          Simple
 extra-source-files:  README.md
