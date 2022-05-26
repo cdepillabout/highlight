@@ -10,7 +10,6 @@ import Prelude.Compat
 import Control.Exception (IOException)
 import Data.ByteString (ByteString)
 import Data.Maybe (maybeToList)
-import Data.Monoid ((<>))
 import Pipes (Producer)
 import Text.RE.PCRE (RE, (*=~), anyMatches)
 import Text.RE.Replace (replaceAll)

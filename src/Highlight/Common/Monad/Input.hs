@@ -23,7 +23,7 @@ import Control.Monad.IO.Class (MonadIO(liftIO))
 import Data.ByteString (ByteString)
 import Data.List (sort)
 import Pipes
-       (Pipe, Producer, Producer', Proxy, (>->), await, each, for, next,
+       (Pipe, Producer, Proxy, (>->), await, each, for, next,
         yield)
 import Pipes.Prelude (toListM)
 import qualified Pipes.Prelude as Pipes
@@ -264,14 +264,18 @@ fileReaderHandleToLine producer = producer >-> pipe
 -- >>> toListM $ fileListProducer Recursive fileOrigin4
 -- [FileReaderErr (FileSpecifiedByUser "thisdirdoesnotexist") thisdirdoesnotexist: openBinaryFile: does not exist (No such file or directory) (Just ...)]
 fileListProducer
-  :: forall m.
+  :: forall x' x m.
      MonadIO m
   => Recursive
   -> FileOrigin
-  -> Producer' (FileReader Handle) m ()
+  -- -> Producer' (FileReader Handle) m ()
+  -> Proxy x' x () (FileReader Handle) m ()
 fileListProducer recursive = go
   where
-    go :: FileOrigin -> Producer' (FileReader Handle) m ()
+    go
+      :: FileOrigin
+      -- -> Producer' (FileReader Handle) m ()
+      -> Proxy x' x () (FileReader Handle) m ()
     go fileOrigin = do
       let maybeFilePath = getFilePathFromFileOrigin fileOrigin
       case maybeFilePath of

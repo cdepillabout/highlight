@@ -13,7 +13,6 @@ import Data.ByteString (ByteString)
 import Data.ByteString.Lazy (fromStrict)
 import qualified Data.ByteString.Lazy as LByteString
 import Data.Foldable (fold)
-import Data.Monoid ((<>))
 import Pipes (Pipe, Producer, (>->))
 import Pipes.Prelude (mapFoldable, toListM)
 import System.Directory

@@ -10,7 +10,6 @@ import Prelude.Compat
 
 import Control.Applicative (many)
 import Control.Lens (Lens', lens)
-import Data.Monoid ((<>))
 import Data.String (IsString)
 import Options.Applicative
        (Parser, flag, help, long, metavar, short, strArgument)

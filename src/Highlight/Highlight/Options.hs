@@ -16,7 +16,6 @@ import Prelude ()
 import Prelude.Compat
 
 import Control.Lens (Lens', lens)
-import Data.Monoid ((<>))
 import Options.Applicative (Parser, flag, help, long, short)
 
 import Highlight.Common.Options

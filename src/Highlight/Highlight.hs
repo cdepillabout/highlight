@@ -13,7 +13,6 @@ This module contains the 'defaultMain' function for the @highlight@ program.
 
 module Highlight.Highlight where
 
-import Data.Monoid ((<>))
 import Options.Applicative
        (InfoMod, ParserInfo, (<**>), execParser, fullDesc, helper,
         info, progDesc)
