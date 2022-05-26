@@ -1,7 +1,6 @@
 
 module Highlight.Hrep where
 
-import Data.Monoid ((<>))
 import Options.Applicative
        (InfoMod, ParserInfo, (<**>), execParser, fullDesc, helper, info,
         progDesc)

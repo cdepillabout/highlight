@@ -12,7 +12,6 @@ import Control.Monad.Reader (MonadReader)
 import Control.Monad.State (MonadState)
 import Data.ByteString (ByteString, empty)
 import qualified Data.ByteString.Char8
-import Data.Monoid ((<>))
 import Pipes (Producer)
 import Text.RE.PCRE (RE, (*=~))
 import Text.RE.Replace (replaceAll)
