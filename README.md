@@ -2,7 +2,7 @@
 Highlight
 =========
 
-[![Build Status](https://secure.travis-ci.org/cdepillabout/highlight.svg)](http://travis-ci.org/cdepillabout/highlight)
+[![Build Status](https://github.com/cdepillabout/highlight/workflows/CI/badge.svg)](https://github.com/cdepillabout/highlight/actions)
 [![Hackage](https://img.shields.io/hackage/v/highlight.svg)](https://hackage.haskell.org/package/highlight)
 [![Stackage LTS](http://stackage.org/package/highlight/badge/lts)](http://stackage.org/lts/package/highlight)
 [![Stackage Nightly](http://stackage.org/package/highlight/badge/nightly)](http://stackage.org/nightly/package/highlight)
